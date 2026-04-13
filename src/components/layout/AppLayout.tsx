@@ -15,7 +15,6 @@ import { saveCarbonFootprint, saveActivity } from "@/lib/storage/localData";
 import { ShortcutsModal } from "../ui/ShortcutsModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import QuickActionsFAB from "@/components/ui/QuickActionsFAB";
-import Footer from "@/components/layout/Footer";
 
 
 type PageType = "dashboard" | "activities" | "tips" | "goals" | "badges";
@@ -414,9 +413,6 @@ useEffect(() => {
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
       />
-      <footer className="fixed bottom-0 left-0 w-full bg-gray-100 p-2 text-center text-xs text-gray-500">
-        Press ? for shortcuts
-      </footer>
       <button
         onClick={() => setShowShortcutsModal(true)}
         className="fixed bottom-4 right-4 bg-[#489d63] text-white p-3 rounded-full shadow-lg hover:bg-[#e3fdee] transition cursor-pointer z-30"
@@ -424,9 +420,6 @@ useEffect(() => {
       >
         ⌨️
       </button>
-
-      
-      <Footer />
     </div>
   );
 }
