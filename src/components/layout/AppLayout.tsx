@@ -88,8 +88,8 @@ useEffect(() => {
 
   const loadTodayFootprint = async () => {
     // This would fetch today's footprint from the database
-    // For now, we'll use a placeholder
-    const baseFootprint = 850; // Base daily footprint
+    // For now, start from zero until user logs activity
+    const baseFootprint = 0;
     setTodayFootprint(baseFootprint);
 
     // Initialize dashboard with sample data
@@ -98,36 +98,24 @@ useEffect(() => {
       weeklyFootprint: baseFootprint * 7,
       monthlyFootprint: baseFootprint * 30,
       weeklyBreakdown: {
-        emails: 200,
-        streaming: 300,
-        coding: 150,
-        video_calls: 400,
-        cloud_storage: 50,
-        gaming: 180,
-        social_media: 120,
+        emails: 0,
+        streaming: 0,
+        coding: 0,
+        video_calls: 0,
+        cloud_storage: 0,
+        gaming: 0,
+        social_media: 0,
       },
       trend: [
-        { date: "Mon", co2: 800 },
-        { date: "Tue", co2: 920 },
-        { date: "Wed", co2: 750 },
-        { date: "Thu", co2: 880 },
-        { date: "Fri", co2: 1100 },
-        { date: "Sat", co2: 650 },
+        { date: "Mon", co2: 0 },
+        { date: "Tue", co2: 0 },
+        { date: "Wed", co2: 0 },
+        { date: "Thu", co2: 0 },
+        { date: "Fri", co2: 0 },
+        { date: "Sat", co2: 0 },
         { date: "Today", co2: baseFootprint },
       ],
-      equivalents: [
-        {
-          description: "driving 2.1 km in a car",
-          value: 2.1,
-          unit: "km_driving",
-        },
-        {
-          description: "charging your phone 103 times",
-          value: 103,
-          unit: "phone_charges",
-        },
-        { description: "boiling 40 cups of tea", value: 40, unit: "tea_cups" },
-      ],
+      equivalents: [],
     };
     setDashboardData(initialDashboard);
   };
