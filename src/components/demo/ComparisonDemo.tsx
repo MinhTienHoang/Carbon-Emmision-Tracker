@@ -35,6 +35,12 @@ const mockDashboardData: DashboardData = {
 
 // Alternative mock data showing different performance levels
 const mockDataSets = {
+  zero: {
+    ...mockDashboardData,
+    todayFootprint: 0,
+    weeklyFootprint: 0,
+    monthlyFootprint: 0,
+  },
   excellent: {
     ...mockDashboardData,
     todayFootprint: 200, // Well below target
@@ -56,7 +62,7 @@ const mockDataSets = {
 };
 
 export default function ComparisonDemo() {
-  const [selectedDataSet, setSelectedDataSet] = useState<keyof typeof mockDataSets>("good");
+  const [selectedDataSet, setSelectedDataSet] = useState<keyof typeof mockDataSets>("zero");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-6">
@@ -81,6 +87,7 @@ export default function ComparisonDemo() {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
+                {key === "zero" && "🆕 Zero"}
                 {key === "excellent" && "🌟 Excellent"}
                 {key === "good" && "👍 Good"}
                 {key === "needsImprovement" && "⚠️ Needs Work"}
