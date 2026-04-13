@@ -31,14 +31,14 @@ export default function ComparisonChart({
 
   const chartData = useMemo(() => {
     return {
-      labels: ["Your Footprint", "Global Average", "Target Goal"],
+      labels: ["Your Footprint", "Tampa Average", "Target Goal"],
       datasets: [
         {
           label: `${period.charAt(0).toUpperCase() + period.slice(1)} CO₂ Emissions`,
           data: [userFootprint, average.total, target.total],
           backgroundColor: [
             userFootprint <= target.total ? "#10B981" : "#EF4444", // Green if below target, red if above
-            "#3B82F6", // Blue for global average
+            "#3B82F6", // Blue for Tampa average
             "#F59E0B", // Yellow for target
           ],
           borderColor: [
@@ -91,10 +91,10 @@ export default function ComparisonChart({
                 description = value <= target.total 
                   ? `🎉 ${Math.abs(Number(percentageVsTarget))}% below target!`
                   : `⚠️ ${percentageVsTarget}% above target`;
-              } else if (label === "Global Average") {
-                description = "Worldwide average for digital activities";
+              } else if (label === "Tampa Average") {
+                description = "Tampa annual average baseline (15.3 tons/year)";
               } else if (label === "Target Goal") {
-                description = "20% reduction from global average";
+                description = "20% reduction from Tampa average";
               }
               
               return [`${formatCO2Amount(value)}`, description];
@@ -179,7 +179,7 @@ export default function ComparisonChart({
         {/* Statistics */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-600">vs Global Average:</span>
+            <span className="text-gray-600">vs Tampa Average:</span>
             <span className={`ml-2 font-semibold ${
               userFootprint <= average.total ? "text-green-600" : "text-red-600"
             }`}>

@@ -104,7 +104,7 @@ export default function ComparisonSection({
           How Do You Compare?
         </h2>
         <p className="text-gray-600">
-          See how your carbon footprint stacks up against global averages and targets
+          See how your carbon footprint stacks up against Tampa averages and targets
         </p>
       </div>
 
@@ -127,7 +127,7 @@ export default function ComparisonSection({
       <div className="grid md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 text-center">
           <div className="text-2xl mb-2">🌍</div>
-          <div className="text-sm text-gray-600 mb-1">Global Average</div>
+          <div className="text-sm text-gray-600 mb-1">Tampa Average</div>
           <div className="text-xl font-bold text-blue-600">
             {formatCO2Amount(average.total)}
           </div>
@@ -193,7 +193,7 @@ export default function ComparisonSection({
           </h3>
           <p className="text-gray-700 text-sm leading-relaxed max-w-2xl mx-auto">
             Understanding your carbon footprint in context helps you make informed decisions. 
-            The global average represents typical digital behavior worldwide, while our target 
+            The Tampa average reflects a local annual baseline of 15.3 tons, while our target 
             goal reflects the 20% reduction scientists recommend to help combat climate change. 
             Every gram of CO₂ saved contributes to a healthier planet! 🌍
           </p>

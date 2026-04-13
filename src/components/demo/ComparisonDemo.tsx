@@ -102,7 +102,7 @@ export default function ComparisonDemo() {
               <div className="text-3xl mb-3">📊</div>
               <h3 className="font-semibold text-gray-900 mb-2">Visual Comparison</h3>
               <p className="text-sm text-gray-600">
-                Clear bar chart showing your footprint vs global average vs target goal
+                Clear bar chart showing your footprint vs Tampa average vs target goal
               </p>
             </div>
             <div className="text-center">
@@ -123,7 +123,7 @@ export default function ComparisonDemo() {
               <div className="text-3xl mb-3">🎯</div>
               <h3 className="font-semibold text-gray-900 mb-2">Target Goals</h3>
               <p className="text-sm text-gray-600">
-                Science-based targets (20% reduction from global average)
+                Science-based targets (20% reduction from Tampa average)
               </p>
             </div>
             <div className="text-center">

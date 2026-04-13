@@ -1,5 +1,5 @@
-// Global average carbon footprint data for digital activities
-// Based on research from various environmental studies and carbon footprint calculators
+// Tampa average carbon footprint data for digital activities
+// Annual Tampa average baseline: 15.3 tons CO2e (15,300,000 grams per year)
 // Values are in grams of CO2 equivalent
 
 export interface GlobalAverageData {
@@ -15,49 +15,55 @@ export interface GlobalAverageData {
   };
 }
 
+
+const TAMPA_ANNUAL_AVERAGE_TONS = 15.3;
+const TAMPA_ANNUAL_AVERAGE_GRAMS = TAMPA_ANNUAL_AVERAGE_TONS * 1_000_000;
+const TAMPA_DAILY_AVERAGE = Math.round(TAMPA_ANNUAL_AVERAGE_GRAMS / 365);
+const TAMPA_WEEKLY_AVERAGE = Math.round(TAMPA_ANNUAL_AVERAGE_GRAMS / 52);
+const TAMPA_MONTHLY_AVERAGE = Math.round(TAMPA_ANNUAL_AVERAGE_GRAMS / 12);
 export const GLOBAL_AVERAGES = {
   daily: {
-    total: 350, // grams of CO2 per day
+    total: TAMPA_DAILY_AVERAGE, // Tampa daily average from annual 15.3 tons
     breakdown: {
-      emails: 45,        // ~20 emails per day
-      streaming: 120,    // ~2 hours streaming
-      coding: 80,        // ~4 hours coding
-      video_calls: 60,   // ~1 hour video calls
-      cloud_storage: 15, // ~5GB usage
-      gaming: 25,        // ~0.5 hours gaming
-      social_media: 5,   // ~1 hour social media
+      emails: 5390,
+      streaming: 14374,
+      coding: 9583,
+      video_calls: 7187,
+      cloud_storage: 1797,
+      gaming: 2995,
+      social_media: 592,
     },
   },
   weekly: {
-    total: 2450, // 7 * 350
+    total: TAMPA_WEEKLY_AVERAGE,
     breakdown: {
-      emails: 315,      // 7 * 45
-      streaming: 840,   // 7 * 120
-      coding: 560,      // 7 * 80
-      video_calls: 420, // 7 * 60
-      cloud_storage: 105, // 7 * 15
-      gaming: 175,      // 7 * 25
-      social_media: 35, // 7 * 5
+      emails: 37725,
+      streaming: 100619,
+      coding: 67079,
+      video_calls: 50296,
+      cloud_storage: 12574,
+      gaming: 20957,
+      social_media: 4190,
     },
   },
   monthly: {
-    total: 10500, // 30 * 350
+    total: TAMPA_MONTHLY_AVERAGE,
     breakdown: {
-      emails: 1350,      // 30 * 45
-      streaming: 3600,   // 30 * 120
-      coding: 2400,      // 30 * 80
-      video_calls: 1800, // 30 * 60
-      cloud_storage: 450, // 30 * 15
-      gaming: 750,       // 30 * 25
-      social_media: 150, // 30 * 5
+      emails: 163929,
+      streaming: 437144,
+      coding: 291429,
+      video_calls: 218572,
+      cloud_storage: 54643,
+      gaming: 91072,
+      social_media: 18211,
     },
   },
 } as const;
 
-// Target goals (20% reduction from global average)
+// Target goals (20% reduction from Tampa average)
 export const TARGET_GOALS = {
   daily: {
-    total: Math.round(GLOBAL_AVERAGES.daily.total * 0.8), // 280g
+    total: Math.round(GLOBAL_AVERAGES.daily.total * 0.8),
     breakdown: Object.fromEntries(
       Object.entries(GLOBAL_AVERAGES.daily.breakdown).map(([key, value]) => [
         key,
@@ -66,7 +72,7 @@ export const TARGET_GOALS = {
     ),
   },
   weekly: {
-    total: Math.round(GLOBAL_AVERAGES.weekly.total * 0.8), // 1960g
+    total: Math.round(GLOBAL_AVERAGES.weekly.total * 0.8),
     breakdown: Object.fromEntries(
       Object.entries(GLOBAL_AVERAGES.weekly.breakdown).map(([key, value]) => [
         key,
@@ -75,7 +81,7 @@ export const TARGET_GOALS = {
     ),
   },
   monthly: {
-    total: Math.round(GLOBAL_AVERAGES.monthly.total * 0.8), // 8400g
+    total: Math.round(GLOBAL_AVERAGES.monthly.total * 0.8),
     breakdown: Object.fromEntries(
       Object.entries(GLOBAL_AVERAGES.monthly.breakdown).map(([key, value]) => [
         key,
