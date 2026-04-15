@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuthDev";
 import { DashboardData, ActivityType } from "@/types";
 import {
@@ -80,6 +80,85 @@ function EquivalentCard({ description, icon }: EquivalentCardProps) {
   );
 }
 
+function getStartOfDay(date: Date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function buildDashboardDataFromHistory(
+  activityHistory: ActivityHistoryEntry[]
+): DashboardData | null {
+  if (activityHistory.length === 0) {
+    return null;
+  }
+
+  const today = getStartOfDay(new Date());
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - 6);
+
+  const monthStart = new Date(today);
+  monthStart.setDate(today.getDate() - 29);
+
+  const todayFootprint = activityHistory
+    .filter(
+      (entry) => getStartOfDay(new Date(entry.timestamp)).getTime() === today.getTime()
+    )
+    .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+
+  const weeklyFootprint = activityHistory
+    .filter((entry) => new Date(entry.timestamp) >= weekStart)
+    .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+
+  const monthlyFootprint = activityHistory
+    .filter((entry) => new Date(entry.timestamp) >= monthStart)
+    .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+
+  const weeklyBreakdown: Record<ActivityType, number> = {
+    emails: 0,
+    streaming: 0,
+    coding: 0,
+    video_calls: 0,
+    cloud_storage: 0,
+    gaming: 0,
+    social_media: 0,
+  };
+
+  activityHistory
+    .filter((entry) => new Date(entry.timestamp) >= weekStart)
+    .forEach((entry) => {
+      Object.entries(entry.result.breakdown).forEach(([activity, value]) => {
+        weeklyBreakdown[activity as ActivityType] += value;
+      });
+    });
+
+  const trend = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+
+    const dayFootprint = activityHistory
+      .filter(
+        (entry) => getStartOfDay(new Date(entry.timestamp)).getTime() === day.getTime()
+      )
+      .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+
+    trend.push({
+      date: day.toLocaleDateString("en-US", { weekday: "short" }),
+      co2: dayFootprint,
+    });
+  }
+
+  return {
+    todayFootprint,
+    weeklyFootprint,
+    monthlyFootprint,
+    weeklyBreakdown,
+    trend,
+    equivalents: calculateEquivalents(todayFootprint),
+  };
+}
+
 type PageType = "dashboard" | "activities" | "tips" | "goals" | "badges";
 
 interface DashboardProps {
@@ -107,6 +186,13 @@ export default function Dashboard({
     success: boolean;
     message: string;
   }>({ show: false, success: false, message: "" });
+
+  const historyDashboardData = useMemo(
+    () => buildDashboardDataFromHistory(activityHistory as ActivityHistoryEntry[]),
+    [activityHistory]
+  );
+
+  const displayedDashboardData = historyDashboardData ?? dashboardData;
 
   useEffect(() => {
     // Use prop data if available, otherwise fetch from database
@@ -245,7 +331,7 @@ export default function Dashboard({
     );
   }
 
-  if (!dashboardData) {
+  if (!displayedDashboardData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -283,7 +369,7 @@ export default function Dashboard({
           {/* Share Button */}
           <div className="mt-4 flex justify-center">
             <ShareButton
-              co2Amount={dashboardData.todayFootprint}
+              co2Amount={displayedDashboardData.todayFootprint}
               period="today"
             />
           </div>
@@ -293,33 +379,33 @@ export default function Dashboard({
         <div className="grid md:grid-cols-3 gap-6">
           <StatCard
             title="Today's Footprint"
-            value={formatCO2Amount(dashboardData.todayFootprint)}
+            value={formatCO2Amount(displayedDashboardData.todayFootprint)}
             icon="📅"
             color="text-blue-600"
           />
           <StatCard
             title="This Week"
-            value={formatCO2Amount(dashboardData.weeklyFootprint)}
+            value={formatCO2Amount(displayedDashboardData.weeklyFootprint)}
             icon="📊"
             color="text-green-600"
           />
           <StatCard
             title="This Month"
-            value={formatCO2Amount(dashboardData.monthlyFootprint)}
+            value={formatCO2Amount(displayedDashboardData.monthlyFootprint)}
             icon="📈"
             color="text-purple-600"
           />
         </div>
 
         {/* Comparison Section */}
-        <ComparisonSection dashboardData={dashboardData} />
+        <ComparisonSection dashboardData={displayedDashboardData} />
 
         {/* Charts Section */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Weekly Breakdown Pie Chart */}
           <FootprintChart
             type="pie"
-            data={dashboardData.weeklyBreakdown}
+            data={displayedDashboardData.weeklyBreakdown}
             title="Weekly Activity Breakdown"
           />
 
@@ -327,21 +413,21 @@ export default function Dashboard({
           <FootprintChart
             type="line"
             data={{
-              labels: dashboardData.trend.map((t) => t.date),
-              values: dashboardData.trend.map((t) => t.co2),
+              labels: displayedDashboardData.trend.map((t) => t.date),
+              values: displayedDashboardData.trend.map((t) => t.co2),
             }}
             title="7-Day Trend"
           />
         </div>
 
         {/* Equivalents Section */}
-        {dashboardData.equivalents.length > 0 && (
+        {displayedDashboardData.equivalents.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
               Today&apos;s Impact in Context
             </h3>
             <div className="grid md:grid-cols-2 gap-4">
-              {dashboardData.equivalents
+              {displayedDashboardData.equivalents
                 .slice(0, 4)
                 .map((equivalent, index) => (
                   <EquivalentCard
