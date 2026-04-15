@@ -22,15 +22,15 @@ export default function ComparisonSection({
   const userFootprint = useMemo(() => {
     switch (selectedPeriod) {
       case "daily":
-        return dashboardData.todayFootprint;
+        return dashboardData?.todayFootprint ?? 0;
       case "weekly":
-        return dashboardData.weeklyFootprint;
+        return dashboardData?.weeklyFootprint ?? 0;
       case "monthly":
-        return dashboardData.monthlyFootprint;
+        return dashboardData?.monthlyFootprint ?? 0;
       default:
-        return dashboardData.todayFootprint;
+        return dashboardData?.todayFootprint ?? 0;
     }
-  }, [selectedPeriod, dashboardData]);
+  }, [selectedPeriod, dashboardData?.todayFootprint, dashboardData?.weeklyFootprint, dashboardData?.monthlyFootprint]);
 
   const { average, target } = getComparisonData(selectedPeriod);
 

@@ -30,12 +30,13 @@ export default function ComparisonChart({
   const { average, target } = getComparisonData(period);
 
   const chartData = useMemo(() => {
+    const dataArray = [userFootprint, average.total, target.total];
     return {
       labels: ["Your Footprint", "Tampa Average", "Target Goal"],
       datasets: [
         {
           label: `${period.charAt(0).toUpperCase() + period.slice(1)} CO₂ Emissions`,
-          data: [userFootprint, average.total, target.total],
+          data: dataArray,
           backgroundColor: [
             userFootprint <= target.total ? "#10B981" : "#EF4444", // Green if below target, red if above
             "#3B82F6", // Blue for Tampa average
