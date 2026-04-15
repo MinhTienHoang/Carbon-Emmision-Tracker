@@ -19,18 +19,24 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 interface ComparisonChartProps {
   userFootprint: number;
   period: ComparisonPeriod;
+  averageFootprint?: number;
+  targetFootprint?: number;
   className?: string;
 }
 
 export default function ComparisonChart({
   userFootprint,
   period,
+  averageFootprint,
+  targetFootprint,
   className = "",
 }: ComparisonChartProps) {
   const { average, target } = getComparisonData(period);
+  const effectiveAverage = averageFootprint ?? average.total;
+  const effectiveTarget = targetFootprint ?? target.total;
 
   const chartData = useMemo(() => {
-    const dataArray = [userFootprint, average.total, target.total];
+    const dataArray = [userFootprint, effectiveAverage, effectiveTarget];
     return {
       labels: ["Your Footprint", "Tampa Average", "Target Goal"],
       datasets: [
@@ -38,12 +44,12 @@ export default function ComparisonChart({
           label: `${period.charAt(0).toUpperCase() + period.slice(1)} CO₂ Emissions`,
           data: dataArray,
           backgroundColor: [
-            userFootprint <= target.total ? "#10B981" : "#EF4444", // Green if below target, red if above
+            userFootprint <= effectiveTarget ? "#10B981" : "#EF4444", // Green if below target, red if above
             "#3B82F6", // Blue for Tampa average
             "#F59E0B", // Yellow for target
           ],
           borderColor: [
-            userFootprint <= target.total ? "#059669" : "#DC2626",
+            userFootprint <= effectiveTarget ? "#059669" : "#DC2626",
             "#2563EB",
             "#D97706",
           ],
@@ -53,7 +59,7 @@ export default function ComparisonChart({
         },
       ],
     };
-  }, [userFootprint, average.total, target.total, period]);
+  }, [userFootprint, effectiveAverage, effectiveTarget, period]);
 
   const chartOptions = useMemo(() => {
     return {
@@ -87,9 +93,8 @@ export default function ComparisonChart({
               
               let description = "";
               if (label === "Your Footprint") {
-                const percentageVsAverage = ((value / average.total - 1) * 100).toFixed(1);
-                const percentageVsTarget = ((value / target.total - 1) * 100).toFixed(1);
-                description = value <= target.total 
+                const percentageVsTarget = ((value / effectiveTarget - 1) * 100).toFixed(1);
+                description = value <= effectiveTarget
                   ? `🎉 ${Math.abs(Number(percentageVsTarget))}% below target!`
                   : `⚠️ ${percentageVsTarget}% above target`;
               } else if (label === "Tampa Average") {
@@ -131,11 +136,11 @@ export default function ComparisonChart({
         },
       },
     };
-  }, [period, average.total, target.total]);
+  }, [period, effectiveTarget]);
 
   // Performance status
   const getPerformanceStatus = () => {
-    if (userFootprint <= target.total) {
+    if (userFootprint <= effectiveTarget) {
       return {
         status: "excellent",
         message: "🎉 Great job! You're below the target!",
@@ -143,7 +148,7 @@ export default function ComparisonChart({
         bgColor: "bg-green-50",
         borderColor: "border-green-200",
       };
-    } else if (userFootprint <= average.total) {
+    } else if (userFootprint <= effectiveAverage) {
       return {
         status: "good",
         message: "👍 You're below average, but there's room for improvement!",
@@ -182,19 +187,19 @@ export default function ComparisonChart({
           <div>
             <span className="text-gray-600">vs Tampa Average:</span>
             <span className={`ml-2 font-semibold ${
-              userFootprint <= average.total ? "text-green-600" : "text-red-600"
+              userFootprint <= effectiveAverage ? "text-green-600" : "text-red-600"
             }`}>
-              {userFootprint <= average.total ? "-" : "+"}
-              {Math.abs(((userFootprint / average.total - 1) * 100)).toFixed(1)}%
+              {userFootprint <= effectiveAverage ? "-" : "+"}
+              {Math.abs(((userFootprint / effectiveAverage - 1) * 100)).toFixed(1)}%
             </span>
           </div>
           <div>
             <span className="text-gray-600">vs Target Goal:</span>
             <span className={`ml-2 font-semibold ${
-              userFootprint <= target.total ? "text-green-600" : "text-red-600"
+              userFootprint <= effectiveTarget ? "text-green-600" : "text-red-600"
             }`}>
-              {userFootprint <= target.total ? "-" : "+"}
-              {Math.abs(((userFootprint / target.total - 1) * 100)).toFixed(1)}%
+              {userFootprint <= effectiveTarget ? "-" : "+"}
+              {Math.abs(((userFootprint / effectiveTarget - 1) * 100)).toFixed(1)}%
             </span>
           </div>
         </div>

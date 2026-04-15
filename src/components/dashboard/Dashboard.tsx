@@ -162,6 +162,7 @@ interface DashboardProps {
   onNavigate: (page: PageType) => void;
   sortPreference: SortOption;
   onSortChange: (sort: SortOption) => void;
+  goalTargetReduction?: number;
 }
 
 export default function Dashboard({
@@ -170,6 +171,7 @@ export default function Dashboard({
   onNavigate,
   sortPreference,
   onSortChange,
+  goalTargetReduction = 20,
 }: DashboardProps) {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
@@ -415,7 +417,10 @@ export default function Dashboard({
         </div>
 
         {/* Comparison Section */}
-        <ComparisonSection dashboardData={displayedDashboardData} />
+        <ComparisonSection
+          dashboardData={displayedDashboardData}
+          goalTargetReduction={goalTargetReduction}
+        />
 
         {/* Charts Section */}
         <div className="grid lg:grid-cols-2 gap-6">

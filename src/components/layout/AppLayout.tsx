@@ -9,7 +9,7 @@ import ActivityForm from "@/components/forms/ActivityForm";
 import TipsPanel from "@/components/tips/TipsPanel";
 import GoalsPanel from "@/components/gamification/GoalsPanel";
 import BadgeDisplay from "@/components/gamification/BadgeDisplay";
-import { ActivityInput } from "@/types";
+import { ActivityInput, WeeklyGoal } from "@/types";
 import { calculateCarbonFootprint } from "@/lib/calculations/carbonFootprint";
 import { saveCarbonFootprint, saveActivity } from "@/lib/storage/localData";
 import { ShortcutsModal } from "../ui/ShortcutsModal";
@@ -21,10 +21,20 @@ type PageType = "dashboard" | "activities" | "tips" | "goals" | "badges";
 type SortOption = "newest" | "oldest" | "highest_impact" | "lowest_impact"; 
 
 const LOCAL_STORAGE_KEY = "activitySortPreference";
+const GOAL_STORAGE_KEY = "weeklyGoalTargetReduction";
 
 const getTimestampValue = (timestamp: Date | string | undefined) => {
   const date = new Date(timestamp ?? Date.now());
   return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
+const getStartOfWeek = (date: Date) => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  const day = normalized.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+  normalized.setDate(normalized.getDate() - daysSinceMonday);
+  return normalized;
 };
 
 export default function AppLayout() {
@@ -38,6 +48,7 @@ export default function AppLayout() {
   const [activityHistory, setActivityHistory] = useState<any[]>([]);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [sortPreference, setSortPreference] = useState<SortOption>("newest");
+  const [goalTargetReduction, setGoalTargetReduction] = useState<number>(20);
 
   //keyboard hook
 useKeyboardShortcuts({setCurrentPage});
@@ -60,6 +71,15 @@ useEffect(() => {
   if (savedSort && ['newest', 'oldest', 'highest_impact', 'lowest_impact'].includes(savedSort)) {
     setSortPreference(savedSort as SortOption);
   }
+
+  const savedGoal = localStorage.getItem(GOAL_STORAGE_KEY);
+  if (savedGoal) {
+    const parsedGoal = Number(savedGoal);
+    if (!Number.isNaN(parsedGoal) && parsedGoal > 0 && parsedGoal <= 100) {
+      setGoalTargetReduction(parsedGoal);
+    }
+  }
+
   // Load today's footprint when component mounts
   loadTodayFootprint();
 }, [user]);
@@ -102,6 +122,50 @@ useEffect(() => {
         );
     }
   }, [activityHistory, sortPreference]);
+
+  const currentWeekCO2 = useMemo(() => {
+    const currentWeekStart = getStartOfWeek(new Date());
+    return activityHistory
+      .filter((entry) => getTimestampValue(entry.timestamp) >= currentWeekStart)
+      .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+  }, [activityHistory]);
+
+  const lastWeekCO2 = useMemo(() => {
+    const currentWeekStart = getStartOfWeek(new Date());
+    const lastWeekStart = new Date(currentWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    return activityHistory
+      .filter((entry) => {
+        const timestamp = getTimestampValue(entry.timestamp);
+        return timestamp >= lastWeekStart && timestamp < currentWeekStart;
+      })
+      .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+  }, [activityHistory]);
+
+  const currentGoal = useMemo<WeeklyGoal | undefined>(() => {
+    if (!user) return undefined;
+
+    const startDate = getStartOfWeek(new Date());
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+
+    const currentProgress =
+      lastWeekCO2 > 0
+        ? Math.max(0, ((lastWeekCO2 - currentWeekCO2) / lastWeekCO2) * 100)
+        : 0;
+
+    return {
+      id: "local-weekly-goal",
+      userId: user.id,
+      targetReduction: goalTargetReduction,
+      startDate,
+      endDate,
+      currentProgress,
+      achieved: currentProgress >= goalTargetReduction,
+    };
+  }, [user, goalTargetReduction, currentWeekCO2, lastWeekCO2]);
 
   const loadTodayFootprint = async () => {
     // This would fetch today's footprint from the database
@@ -253,6 +317,8 @@ useEffect(() => {
     try {
       // This would save the goal to the database
       console.log("Setting goal:", targetReduction);
+      setGoalTargetReduction(targetReduction);
+      localStorage.setItem(GOAL_STORAGE_KEY, String(targetReduction));
 
       // For now, just show success
       setSuccessToast(`Goal set! Target: ${targetReduction}% reduction`);
@@ -272,6 +338,7 @@ useEffect(() => {
             activityHistory={memoizedSortedHistory}
             sortPreference={sortPreference}
             onSortChange={handleSortChange}
+            goalTargetReduction={goalTargetReduction}
             onNavigate={setCurrentPage}
           />
         );
@@ -312,8 +379,9 @@ useEffect(() => {
           <div className=" min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
             <div className="max-w-4xl mx-auto px-4">
               <GoalsPanel
-                currentWeekCO2={2500}
-                lastWeekCO2={3200}
+                currentGoal={currentGoal}
+                currentWeekCO2={currentWeekCO2}
+                lastWeekCO2={lastWeekCO2}
                 onSetGoal={handleSetGoal}
               />
             </div>
@@ -362,6 +430,7 @@ useEffect(() => {
         return (<Dashboard
           dashboardData={dashboardData}
           activityHistory={activityHistory}
+          goalTargetReduction={goalTargetReduction}
           onNavigate={setCurrentPage}
         />);
     }

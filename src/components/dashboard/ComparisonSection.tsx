@@ -9,11 +9,13 @@ import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
 
 interface ComparisonSectionProps {
   dashboardData: DashboardData;
+  goalTargetReduction?: number;
   className?: string;
 }
 
 export default function ComparisonSection({
   dashboardData,
+  goalTargetReduction = 20,
   className = "",
 }: ComparisonSectionProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ComparisonPeriod>("daily");
@@ -32,7 +34,12 @@ export default function ComparisonSection({
     }
   }, [selectedPeriod, dashboardData?.todayFootprint, dashboardData?.weeklyFootprint, dashboardData?.monthlyFootprint]);
 
-  const { average, target } = getComparisonData(selectedPeriod);
+  const { average } = getComparisonData(selectedPeriod);
+  const normalizedGoalTarget = Math.min(100, Math.max(1, goalTargetReduction));
+  const targetTotal = useMemo(
+    () => Math.round(average.total * (1 - normalizedGoalTarget / 100)),
+    [average.total, normalizedGoalTarget]
+  );
 
   // Generate contextual tips based on performance
   const getContextualTips = () => {
@@ -92,9 +99,9 @@ export default function ComparisonSection({
 
   // Calculate potential savings
   const potentialSavings = useMemo(() => {
-    if (userFootprint <= target.total) return 0;
-    return userFootprint - target.total;
-  }, [userFootprint, target.total]);
+    if (userFootprint <= targetTotal) return 0;
+    return userFootprint - targetTotal;
+  }, [userFootprint, targetTotal]);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -119,9 +126,11 @@ export default function ComparisonSection({
 
       {/* Comparison Chart */}
       <ComparisonChart
-        key={`${selectedPeriod}-${dashboardData?.todayFootprint ?? 0}-${dashboardData?.weeklyFootprint ?? 0}-${dashboardData?.monthlyFootprint ?? 0}`}
+        key={`${selectedPeriod}-${dashboardData?.todayFootprint ?? 0}-${dashboardData?.weeklyFootprint ?? 0}-${dashboardData?.monthlyFootprint ?? 0}-${normalizedGoalTarget}`}
         userFootprint={userFootprint}
         period={selectedPeriod}
+        averageFootprint={average.total}
+        targetFootprint={targetTotal}
       />
 
       {/* Impact Summary */}
@@ -138,23 +147,26 @@ export default function ComparisonSection({
           <div className="text-2xl mb-2">🎯</div>
           <div className="text-sm text-gray-600 mb-1">Target Goal</div>
           <div className="text-xl font-bold text-yellow-600">
-            {formatCO2Amount(target.total)}
+            {formatCO2Amount(targetTotal)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {normalizedGoalTarget}% reduction target
           </div>
         </div>
         
         <div className={`rounded-lg p-4 text-center ${
-          userFootprint <= target.total 
+          userFootprint <= targetTotal
             ? "bg-gradient-to-br from-green-50 to-green-100" 
             : "bg-gradient-to-br from-red-50 to-red-100"
         }`}>
           <div className="text-2xl mb-2">
-            {userFootprint <= target.total ? "🎉" : "⚠️"}
+            {userFootprint <= targetTotal ? "🎉" : "⚠️"}
           </div>
           <div className="text-sm text-gray-600 mb-1">
             {potentialSavings > 0 ? "Potential Savings" : "You're on track!"}
           </div>
           <div className={`text-xl font-bold ${
-            userFootprint <= target.total ? "text-green-600" : "text-red-600"
+            userFootprint <= targetTotal ? "text-green-600" : "text-red-600"
           }`}>
             {potentialSavings > 0 
               ? formatCO2Amount(potentialSavings)
