@@ -2,21 +2,25 @@
 
 import { useMemo } from "react";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
   ArcElement,
   BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  ChartData,
+  ChartOptions,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  TooltipItem,
 } from "chart.js";
-import { Line, Pie, Bar } from "react-chartjs-2";
-import { ActivityType } from "@/types";
+import { Bar, Line, Pie } from "react-chartjs-2";
 import { ACTIVITY_LABELS } from "@/constants/co2Factors";
 import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
+import { ActivityType } from "@/types";
 
 ChartJS.register(
   CategoryScale,
@@ -27,7 +31,8 @@ ChartJS.register(
   Tooltip,
   Legend,
   ArcElement,
-  BarElement
+  BarElement,
+  Filler
 );
 
 interface FootprintChartProps {
@@ -37,14 +42,17 @@ interface FootprintChartProps {
   className?: string;
 }
 
+type SeriesData = { labels: string[]; values: number[] };
+type BreakdownData = Record<string, number>;
+
 const chartColors = [
-  "#10B981", // emerald-500
-  "#3B82F6", // blue-500
-  "#8B5CF6", // violet-500
-  "#F59E0B", // amber-500
-  "#EF4444", // red-500
-  "#EC4899", // pink-500
-  "#6B7280", // gray-500
+  "#10B981",
+  "#3B82F6",
+  "#8B5CF6",
+  "#F59E0B",
+  "#EF4444",
+  "#EC4899",
+  "#6B7280",
 ];
 
 export default function FootprintChart({
@@ -53,13 +61,102 @@ export default function FootprintChart({
   title,
   className = "",
 }: FootprintChartProps) {
-  const chartOptions = useMemo(() => {
-    const baseOptions = {
+  const isSeriesData = (
+    value: FootprintChartProps["data"]
+  ): value is SeriesData => {
+    return (
+      typeof value === "object" &&
+      Array.isArray((value as SeriesData).labels) &&
+      Array.isArray((value as SeriesData).values)
+    );
+  };
+
+  const normalizedSeriesData = useMemo<SeriesData>(() => {
+    if (!isSeriesData(data)) {
+      return { labels: [], values: [] };
+    }
+
+    return {
+      labels: data.labels ?? [],
+      values: (data.values ?? []).map((value: number) =>
+        Number.isFinite(value) ? value : 0
+      ),
+    };
+  }, [data]);
+
+  const normalizedBreakdown = useMemo<BreakdownData>(() => {
+    if (isSeriesData(data)) {
+      return {};
+    }
+
+    return Object.entries(data as BreakdownData).reduce<Record<string, number>>(
+      (accumulator, [key, value]) => {
+        accumulator[key] = Number.isFinite(value) ? value : 0;
+        return accumulator;
+      },
+      {}
+    );
+  }, [data]);
+
+  const filteredBreakdown = useMemo<BreakdownData>(() => {
+    return Object.fromEntries(
+      Object.entries(normalizedBreakdown).filter(([, value]) => value > 0)
+    );
+  }, [normalizedBreakdown]);
+
+  const pieOptions = useMemo<ChartOptions<"pie">>(() => {
+    return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
           position: "bottom" as const,
+          labels: {
+            usePointStyle: true,
+            padding: 20,
+            font: {
+              size: 12,
+            },
+          },
+        },
+        title: {
+          display: true,
+          text: title,
+          font: {
+            size: 16,
+            weight: "bold" as const,
+          },
+          padding: 20,
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: TooltipItem<"pie">) => {
+              const value = Number(context.parsed ?? 0);
+              const datasetValues = (context.dataset.data as number[]) ?? [];
+              const total = datasetValues.reduce(
+                (sum: number, item: number) => sum + item,
+                0
+              );
+              const percentage =
+                total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+
+              return `${context.label}: ${formatCO2Amount(
+                value
+              )} (${percentage}%)`;
+            },
+          },
+        },
+      },
+    };
+  }, [title]);
+
+  const lineOptions = useMemo<ChartOptions<"line">>(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
           labels: {
             usePointStyle: true,
             padding: 20,
@@ -79,148 +176,146 @@ export default function FootprintChart({
         },
         tooltip: {
           callbacks: {
-            label: (context: {
-              parsed: number;
-              label: string;
-              dataset: { data: number[]; label?: string };
-            }) => {
-              if (type === "pie") {
-                const value = context.parsed;
-                const total = context.dataset.data.reduce(
-                  (a: number, b: number) => a + b,
-                  0
-                );
-                const percentage = ((value / total) * 100).toFixed(1);
-                return `${context.label}: ${formatCO2Amount(
-                  value
-                )} (${percentage}%)`;
-              }
-              return `${context.dataset.label}: ${formatCO2Amount(
-                context.parsed
-              )}`;
-            },
+            label: (context: TooltipItem<"line">) =>
+              `Daily CO2 Emissions: ${formatCO2Amount(context.parsed.y ?? 0)}`,
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (value: string | number) =>
+              formatCO2Amount(Number(value)),
+          },
+        },
+        x: {
+          ticks: {
+            maxTicksLimit: 7,
           },
         },
       },
     };
+  }, [title]);
 
-    if (type === "line") {
-      return {
-        ...baseOptions,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: (value: string | number) =>
-                formatCO2Amount(Number(value)),
-            },
-          },
-          x: {
-            ticks: {
-              maxTicksLimit: 7,
-            },
-          },
-        },
-      };
-    }
-
-    if (type === "bar") {
-      return {
-        ...baseOptions,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: (value: string | number) =>
-                formatCO2Amount(Number(value)),
+  const barOptions = useMemo<ChartOptions<"bar">>(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            usePointStyle: true,
+            padding: 20,
+            font: {
+              size: 12,
             },
           },
         },
-      };
-    }
-
-    return baseOptions;
-  }, [type, title]);
-
-  const chartData = useMemo(() => {
-    if (type === "pie") {
-      return {
-        labels: Object.keys(data).map(
-          (key) => ACTIVITY_LABELS[key as ActivityType] || key
-        ),
-        datasets: [
-          {
-            data: Object.values(data),
-            backgroundColor: chartColors,
-            borderColor: chartColors.map((color) => color + "80"),
-            borderWidth: 2,
+        title: {
+          display: true,
+          text: title,
+          font: {
+            size: 16,
+            weight: "bold",
           },
-        ],
-      };
-    }
+          padding: 20,
+        },
+        tooltip: {
+          callbacks: {
+            label: (context: TooltipItem<"bar">) =>
+              `CO2 Emissions: ${formatCO2Amount(context.parsed.y ?? 0)}`,
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (value: string | number) =>
+              formatCO2Amount(Number(value)),
+          },
+        },
+      },
+    };
+  }, [title]);
 
+  const pieData = useMemo<ChartData<"pie", number[], string>>(() => {
+    return {
+      labels: Object.keys(filteredBreakdown).map(
+        (key) => ACTIVITY_LABELS[key as ActivityType] || key
+      ),
+      datasets: [
+        {
+          label: "CO2 Emissions",
+          data: Object.values(filteredBreakdown),
+          backgroundColor: `${chartColors[0]}80`,
+          borderColor: chartColors[0],
+          borderWidth: 2,
+          borderRadius: 4,
+        },
+      ],
+    };
+  }, [filteredBreakdown]);
+
+  const lineData = useMemo<ChartData<"line", number[], string>>(() => {
+    return {
+      labels: normalizedSeriesData.labels,
+      datasets: [
+        {
+          label: "Daily CO2 Emissions",
+          data: normalizedSeriesData.values,
+          borderColor: chartColors[0],
+          backgroundColor: `${chartColors[0]}20`,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: chartColors[0],
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 4,
+        },
+      ],
+    };
+  }, [normalizedSeriesData.labels, normalizedSeriesData.values]);
+
+  const barData = useMemo<ChartData<"bar", number[], string>>(() => {
+    return {
+      labels: Object.keys(filteredBreakdown).map(
+        (key) => ACTIVITY_LABELS[key as ActivityType] || key
+      ),
+      datasets: [
+        {
+          label: "CO2 Emissions",
+          data: Object.values(filteredBreakdown),
+          backgroundColor: `${chartColors[0]}80`,
+          borderColor: chartColors[0],
+          borderWidth: 2,
+          borderRadius: 4,
+        },
+      ],
+    };
+  }, [filteredBreakdown]);
+
+  const hasData = useMemo(() => {
     if (type === "line") {
-      return {
-        labels: data.labels,
-        datasets: [
-          {
-            label: "Daily CO₂ Emissions",
-            data: data.values,
-            borderColor: chartColors[0],
-            backgroundColor: chartColors[0] + "20",
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: chartColors[0],
-            pointBorderColor: "#ffffff",
-            pointBorderWidth: 2,
-            pointRadius: 4,
-          },
-        ],
-      };
-    }
-
-    if (type === "bar") {
-      return {
-        labels: Object.keys(data).map(
-          (key) => ACTIVITY_LABELS[key as ActivityType] || key
-        ),
-        datasets: [
-          {
-            label: "CO₂ Emissions",
-            data: Object.values(data),
-            backgroundColor: chartColors[0] + "80",
-            borderColor: chartColors[0],
-            borderWidth: 2,
-            borderRadius: 4,
-          },
-        ],
-      };
-    }
-
-    return data;
-  }, [data, type]);
-
-  const ChartComponent = type === "pie" ? Pie : type === "line" ? Line : Bar;
-
-  // Check if data is empty
-  const hasData = (() => {
-    if ("labels" in data) {
       return (
-        data.values && data.values.length > 0 && data.values.some((v) => v > 0)
+        normalizedSeriesData.values.length > 0 &&
+        normalizedSeriesData.values.some((value: number) => value > 0)
       );
     }
-    return Object.values(data).some((v) => v > 0);
-  })();
 
-  // If no data, show empty state
+    return Object.keys(filteredBreakdown).length > 0;
+  }, [filteredBreakdown, normalizedSeriesData.values, type]);
+
   if (!hasData) {
     return (
       <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
         <div className="h-80 flex flex-col items-center justify-center">
-          <div className="text-6xl mb-4">📈</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-          <p className="text-gray-600 text-center max-w-xs">
-            Add activities to see your carbon footprint trends
+          <div className="mb-4 text-5xl text-gray-300">+</div>
+          <h3 className="mb-2 text-xl font-semibold text-gray-900">{title}</h3>
+          <p className="max-w-xs text-center text-gray-600">
+            Add activities to generate chart data for this view.
           </p>
         </div>
       </div>
@@ -230,7 +325,9 @@ export default function FootprintChart({
   return (
     <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
       <div className="h-80">
-        <ChartComponent data={chartData} options={chartOptions} />
+        {type === "pie" && <Pie data={pieData} options={pieOptions} />}
+        {type === "line" && <Line data={lineData} options={lineOptions} />}
+        {type === "bar" && <Bar data={barData} options={barOptions} />}
       </div>
     </div>
   );

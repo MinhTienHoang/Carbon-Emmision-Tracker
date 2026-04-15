@@ -3,17 +3,21 @@
 import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
   BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  ChartOptions,
+  Legend,
+  LinearScale,
   Title,
   Tooltip,
-  Legend,
   TooltipItem,
 } from "chart.js";
 import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
-import { ComparisonPeriod, getComparisonData } from "@/constants/globalAverages";
+import {
+  ComparisonPeriod,
+  getComparisonData,
+} from "@/constants/globalAverages";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -33,24 +37,37 @@ export default function ComparisonChart({
   className = "",
 }: ComparisonChartProps) {
   const { average, target } = getComparisonData(period);
-  const effectiveAverage = averageFootprint ?? average.total;
-  const effectiveTarget = targetFootprint ?? target.total;
+  const safeUserFootprint = Math.max(
+    0,
+    Number.isFinite(userFootprint) ? userFootprint : 0
+  );
+  const effectiveAverage = Math.max(0, averageFootprint ?? average.total);
+  const effectiveTarget = Math.max(0, targetFootprint ?? target.total);
+
+  const formatPercentageDelta = (baseline: number) => {
+    if (baseline <= 0) {
+      return "0.0%";
+    }
+
+    return `${Math.abs(((safeUserFootprint / baseline - 1) * 100)).toFixed(1)}%`;
+  };
 
   const chartData = useMemo(() => {
-    const dataArray = [userFootprint, effectiveAverage, effectiveTarget];
     return {
       labels: ["Your Footprint", "Tampa Average", "Target Goal"],
       datasets: [
         {
-          label: `${period.charAt(0).toUpperCase() + period.slice(1)} CO₂ Emissions`,
-          data: dataArray,
+          label: `${
+            period.charAt(0).toUpperCase() + period.slice(1)
+          } CO2 Emissions`,
+          data: [safeUserFootprint, effectiveAverage, effectiveTarget],
           backgroundColor: [
-            userFootprint <= effectiveTarget ? "#10B981" : "#EF4444", // Green if below target, red if above
-            "#3B82F6", // Blue for Tampa average
-            "#F59E0B", // Yellow for target
+            safeUserFootprint <= effectiveTarget ? "#10B981" : "#EF4444",
+            "#3B82F6",
+            "#F59E0B",
           ],
           borderColor: [
-            userFootprint <= effectiveTarget ? "#059669" : "#DC2626",
+            safeUserFootprint <= effectiveTarget ? "#059669" : "#DC2626",
             "#2563EB",
             "#D97706",
           ],
@@ -60,19 +77,21 @@ export default function ComparisonChart({
         },
       ],
     };
-  }, [userFootprint, effectiveAverage, effectiveTarget, period]);
+  }, [effectiveAverage, effectiveTarget, period, safeUserFootprint]);
 
-  const chartOptions = useMemo(() => {
+  const chartOptions = useMemo<ChartOptions<"bar">>(() => {
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false, // Hide legend since we have custom labels
+          display: false,
         },
         title: {
           display: true,
-          text: `${period.charAt(0).toUpperCase() + period.slice(1)} Carbon Footprint Comparison`,
+          text: `${
+            period.charAt(0).toUpperCase() + period.slice(1)
+          } Carbon Footprint Comparison`,
           font: {
             size: 18,
             weight: "bold" as const,
@@ -89,22 +108,30 @@ export default function ComparisonChart({
           cornerRadius: 8,
           callbacks: {
             label: (context: TooltipItem<"bar">) => {
-              const value = context.parsed.y;
+              const value = context.parsed.y ?? 0;
               const label = context.label;
-              
+
               let description = "";
               if (label === "Your Footprint") {
-                const percentageVsTarget = ((value / effectiveTarget - 1) * 100).toFixed(1);
-                description = value <= effectiveTarget
-                  ? `🎉 ${Math.abs(Number(percentageVsTarget))}% below target!`
-                  : `⚠️ ${percentageVsTarget}% above target`;
+                if (effectiveTarget > 0) {
+                  const percentageVsTarget = (
+                    (value / effectiveTarget - 1) *
+                    100
+                  ).toFixed(1);
+                  description =
+                    value <= effectiveTarget
+                      ? `${Math.abs(Number(percentageVsTarget))}% below target`
+                      : `${percentageVsTarget}% above target`;
+                }
               } else if (label === "Tampa Average") {
                 description = "Tampa annual average baseline (15.3 tons/year)";
               } else if (label === "Target Goal") {
                 description = "20% reduction from Tampa average";
               }
-              
-              return [`${formatCO2Amount(value)}`, description];
+
+              return description
+                ? [`${formatCO2Amount(value)}`, description]
+                : [formatCO2Amount(value)];
             },
           },
         },
@@ -131,76 +158,80 @@ export default function ComparisonChart({
             color: "#374151",
             font: {
               size: 12,
-              weight: "500" as const,
+              weight: 500,
             },
           },
         },
       },
     };
-  }, [period, effectiveTarget]);
+  }, [effectiveTarget, period]);
 
-  // Performance status
-  const getPerformanceStatus = () => {
-    if (userFootprint <= effectiveTarget) {
+  const performanceStatus = useMemo(() => {
+    if (safeUserFootprint <= effectiveTarget) {
       return {
-        status: "excellent",
-        message: "🎉 Great job! You're below the target!",
+        message: "Great job! You're below the target!",
         color: "text-green-600",
         bgColor: "bg-green-50",
         borderColor: "border-green-200",
       };
-    } else if (userFootprint <= effectiveAverage) {
+    }
+
+    if (safeUserFootprint <= effectiveAverage) {
       return {
-        status: "good",
-        message: "👍 You're below average, but there's room for improvement!",
+        message: "You're below average, but there's room for improvement!",
         color: "text-blue-600",
         bgColor: "bg-blue-50",
         borderColor: "border-blue-200",
       };
-    } else {
-      return {
-        status: "needs_improvement",
-        message: "⚠️ Your footprint is above average. Small changes can make a big difference!",
-        color: "text-orange-600",
-        bgColor: "bg-orange-50",
-        borderColor: "border-orange-200",
-      };
     }
-  };
 
-  const performanceStatus = getPerformanceStatus();
+    return {
+      message:
+        "Your footprint is above average. Small changes can make a big difference!",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      borderColor: "border-orange-200",
+    };
+  }, [effectiveAverage, effectiveTarget, safeUserFootprint]);
 
   return (
     <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
-      {/* Chart */}
       <div className="h-80 mb-6">
-        <Bar data={chartData} options={chartOptions} redraw />
+        <Bar data={chartData} options={chartOptions} />
       </div>
 
-      {/* Performance Status */}
-      <div className={`p-4 rounded-lg border-2 ${performanceStatus.bgColor} ${performanceStatus.borderColor}`}>
-        <p className={`font-semibold ${performanceStatus.color} mb-2`}>
+      <div
+        className={`rounded-lg border-2 p-4 ${performanceStatus.bgColor} ${performanceStatus.borderColor}`}
+      >
+        <p className={`mb-2 font-semibold ${performanceStatus.color}`}>
           {performanceStatus.message}
         </p>
-        
-        {/* Statistics */}
+
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-gray-600">vs Tampa Average:</span>
-            <span className={`ml-2 font-semibold ${
-              userFootprint <= effectiveAverage ? "text-green-600" : "text-red-600"
-            }`}>
-              {userFootprint <= effectiveAverage ? "-" : "+"}
-              {Math.abs(((userFootprint / effectiveAverage - 1) * 100)).toFixed(1)}%
+            <span
+              className={`ml-2 font-semibold ${
+                safeUserFootprint <= effectiveAverage
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              {safeUserFootprint <= effectiveAverage ? "-" : "+"}
+              {formatPercentageDelta(effectiveAverage)}
             </span>
           </div>
           <div>
             <span className="text-gray-600">vs Target Goal:</span>
-            <span className={`ml-2 font-semibold ${
-              userFootprint <= effectiveTarget ? "text-green-600" : "text-red-600"
-            }`}>
-              {userFootprint <= effectiveTarget ? "-" : "+"}
-              {Math.abs(((userFootprint / effectiveTarget - 1) * 100)).toFixed(1)}%
+            <span
+              className={`ml-2 font-semibold ${
+                safeUserFootprint <= effectiveTarget
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              {safeUserFootprint <= effectiveTarget ? "-" : "+"}
+              {formatPercentageDelta(effectiveTarget)}
             </span>
           </div>
         </div>
