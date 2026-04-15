@@ -4,18 +4,20 @@ import { useState, useMemo } from "react";
 import ComparisonChart from "@/components/charts/ComparisonChart";
 import PeriodSelector from "@/components/ui/PeriodSelector";
 import { ComparisonPeriod, getComparisonData } from "@/constants/globalAverages";
-import { DashboardData } from "@/types";
+import { DashboardData, WeeklyGoal } from "@/types";
 import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
 
 interface ComparisonSectionProps {
   dashboardData: DashboardData;
   goalTargetReduction?: number;
+  currentGoal?: WeeklyGoal;
   className?: string;
 }
 
 export default function ComparisonSection({
   dashboardData,
   goalTargetReduction = 20,
+  currentGoal,
   className = "",
 }: ComparisonSectionProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ComparisonPeriod>("daily");
@@ -103,6 +105,14 @@ export default function ComparisonSection({
     return userFootprint - targetTotal;
   }, [userFootprint, targetTotal]);
 
+  const goalProgress = useMemo(() => {
+    if (!currentGoal || !currentGoal.targetReduction) {
+      return null;
+    }
+
+    return Math.min(100, Math.max(0, currentGoal.currentProgress));
+  }, [currentGoal]);
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
@@ -123,6 +133,40 @@ export default function ComparisonSection({
           className="w-full max-w-md"
         />
       </div>
+
+      {currentGoal && (
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wide text-blue-600">
+                Active Weekly Goal
+              </p>
+              <h3 className="text-xl font-bold text-gray-900">
+                {currentGoal.targetReduction}% reduction target
+              </h3>
+              <p className="text-sm text-gray-600">
+                The dashboard is now synced to your selected goal and uses it
+                for target comparisons.
+              </p>
+            </div>
+
+            <div className="min-w-52 rounded-lg bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between text-sm text-gray-600">
+                <span>Goal progress</span>
+                <span>{goalProgress?.toFixed(1) ?? "0.0"}%</span>
+              </div>
+              <div className="h-3 rounded-full bg-gray-200">
+                <div
+                  className={`h-3 rounded-full transition-all duration-500 ${
+                    currentGoal.achieved ? "bg-green-500" : "bg-blue-500"
+                  }`}
+                  style={{ width: `${goalProgress ?? 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comparison Chart */}
       <ComparisonChart

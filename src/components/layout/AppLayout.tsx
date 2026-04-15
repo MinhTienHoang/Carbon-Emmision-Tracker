@@ -358,6 +358,7 @@ useEffect(() => {
             sortPreference={sortPreference}
             onSortChange={handleSortChange}
             goalTargetReduction={goalTargetReduction}
+            currentGoal={currentGoal}
             onNavigate={setCurrentPage}
           />
         );
@@ -452,6 +453,7 @@ useEffect(() => {
           sortPreference={sortPreference}
           onSortChange={handleSortChange}
           goalTargetReduction={goalTargetReduction}
+          currentGoal={currentGoal}
           onNavigate={setCurrentPage}
         />);
     }

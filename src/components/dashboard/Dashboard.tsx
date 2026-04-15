@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuthDev";
-import { DashboardData, ActivityHistoryEntry, ActivityType } from "@/types";
+import {
+  DashboardData,
+  ActivityHistoryEntry,
+  ActivityType,
+  WeeklyGoal,
+} from "@/types";
 import {
   formatCO2Amount,
   calculateEquivalents,
@@ -163,6 +168,7 @@ interface DashboardProps {
   sortPreference: SortOption;
   onSortChange: (sort: SortOption) => void;
   goalTargetReduction?: number;
+  currentGoal?: WeeklyGoal;
 }
 
 export default function Dashboard({
@@ -172,6 +178,7 @@ export default function Dashboard({
   sortPreference,
   onSortChange,
   goalTargetReduction = 20,
+  currentGoal,
 }: DashboardProps) {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
@@ -419,6 +426,7 @@ export default function Dashboard({
         <ComparisonSection
           dashboardData={displayedDashboardData}
           goalTargetReduction={goalTargetReduction}
+          currentGoal={currentGoal}
         />
 
         {/* Charts Section */}
