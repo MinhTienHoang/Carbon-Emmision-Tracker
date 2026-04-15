@@ -43,7 +43,7 @@ export default function ComparisonSection({
 
   // Generate contextual tips based on performance
   const getContextualTips = () => {
-    const isAboveTarget = userFootprint > target.total;
+    const isAboveTarget = userFootprint > targetTotal;
     const isAboveAverage = userFootprint > average.total;
 
     if (!isAboveTarget) {
