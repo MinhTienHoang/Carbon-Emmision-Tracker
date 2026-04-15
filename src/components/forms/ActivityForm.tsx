@@ -1,9 +1,88 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityInput } from '@/types';
 import { calculateCarbonFootprint } from '@/lib/calculations/carbonFootprint';
 import { ACTIVITY_LABELS, ACTIVITY_DESCRIPTIONS } from '@/constants/co2Factors';
+
+const ACTIVITY_LIST_STORAGE_KEY = 'carbon_tracker_visible_activities';
+const ALL_FIELD_KEYS: Array<keyof ActivityInput> = [
+  'emails',
+  'streamingHours',
+  'codingHours',
+  'videoCallHours',
+  'cloudStorageGB',
+  'gamingHours',
+  'socialMediaHours',
+];
+
+type ActivityFieldConfig = {
+  key: keyof ActivityInput;
+  label: string;
+  description: string;
+  max: number;
+  step: number;
+  icon: string;
+};
+
+const allFormFields: ActivityFieldConfig[] = [
+  {
+    key: 'emails',
+    label: ACTIVITY_LABELS.emails,
+    description: ACTIVITY_DESCRIPTIONS.emails,
+    max: 500,
+    step: 1,
+    icon: '📧',
+  },
+  {
+    key: 'streamingHours',
+    label: ACTIVITY_LABELS.streaming,
+    description: ACTIVITY_DESCRIPTIONS.streaming,
+    max: 24,
+    step: 0.5,
+    icon: '📺',
+  },
+  {
+    key: 'codingHours',
+    label: ACTIVITY_LABELS.coding,
+    description: ACTIVITY_DESCRIPTIONS.coding,
+    max: 24,
+    step: 0.5,
+    icon: '💻',
+  },
+  {
+    key: 'videoCallHours',
+    label: ACTIVITY_LABELS.video_calls,
+    description: ACTIVITY_DESCRIPTIONS.video_calls,
+    max: 24,
+    step: 0.5,
+    icon: '📹',
+  },
+  {
+    key: 'cloudStorageGB',
+    label: ACTIVITY_LABELS.cloud_storage,
+    description: ACTIVITY_DESCRIPTIONS.cloud_storage,
+    max: 1000,
+    step: 1,
+    icon: '☁️',
+  },
+  {
+    key: 'gamingHours',
+    label: ACTIVITY_LABELS.gaming,
+    description: ACTIVITY_DESCRIPTIONS.gaming,
+    max: 24,
+    step: 0.5,
+    icon: '🎮',
+  },
+  {
+    key: 'socialMediaHours',
+    label: ACTIVITY_LABELS.social_media,
+    description: ACTIVITY_DESCRIPTIONS.social_media,
+    max: 24,
+    step: 0.5,
+    icon: '📱',
+  },
+];
 
 interface ActivityFormProps {
   onSubmit: (
@@ -33,6 +112,46 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const [visibleFieldKeys, setVisibleFieldKeys] = useState<Array<keyof ActivityInput>>(ALL_FIELD_KEYS);
+  const [selectedFieldToAdd, setSelectedFieldToAdd] = useState<keyof ActivityInput | ''>('');
+
+  useEffect(() => {
+    const raw = localStorage.getItem(ACTIVITY_LIST_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      const validKeys = parsed.filter((key): key is keyof ActivityInput =>
+        typeof key === 'string' && ALL_FIELD_KEYS.includes(key as keyof ActivityInput)
+      );
+
+      if (validKeys.length > 0) {
+        setVisibleFieldKeys(validKeys);
+      }
+    } catch {
+      // If parsing fails, keep defaults.
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVITY_LIST_STORAGE_KEY, JSON.stringify(visibleFieldKeys));
+  }, [visibleFieldKeys]);
+
+  const formFields = useMemo(
+    () => allFormFields.filter((field) => visibleFieldKeys.includes(field.key)),
+    [visibleFieldKeys]
+  );
+
+  const hiddenFields = useMemo(
+    () => allFormFields.filter((field) => !visibleFieldKeys.includes(field.key)),
+    [visibleFieldKeys]
+  );
 
   const validateField = (field: keyof ActivityInput, value: number) => {
     if (touched[field] && value < 0) {
@@ -46,6 +165,11 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
   };
 
   const validateForm = () => {
+    if (formFields.length === 0) {
+      setErrors({ form: 'Please add at least one activity to track' });
+      return false;
+    }
+
     const hasActivity = formFields.some(field => activities[field.key] > 0);
     if (!hasActivity) {
       setErrors({ form: 'Please select at least one activity' });
@@ -66,6 +190,37 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     setTouched(prev => ({ ...prev, [field]: true }));
     const error = validateField(field, activities[field]);
     setErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  const handleRemoveField = (field: keyof ActivityInput) => {
+    if (visibleFieldKeys.length <= 1) {
+      setErrors((prev) => ({
+        ...prev,
+        form: 'At least one activity must remain in your list',
+      }));
+      return;
+    }
+
+    setVisibleFieldKeys((prev) => prev.filter((key) => key !== field));
+    setActivities((prev) => ({ ...prev, [field]: 0 }));
+    setTouched((prev) => ({ ...prev, [field]: false }));
+    setErrors((prev) => ({ ...prev, [field]: '', form: '' }));
+  };
+
+  const handleAddField = () => {
+    if (!selectedFieldToAdd) {
+      return;
+    }
+
+    setVisibleFieldKeys((prev) => {
+      if (prev.includes(selectedFieldToAdd)) {
+        return prev;
+      }
+      return [...prev, selectedFieldToAdd];
+    });
+
+    setErrors((prev) => ({ ...prev, form: '' }));
+    setSelectedFieldToAdd('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,65 +263,7 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     }
   };
 
-  const formFields = [
-    {
-      key: 'emails' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.emails,
-      description: ACTIVITY_DESCRIPTIONS.emails,
-      max: 500,
-      step: 1,
-      icon: '📧',
-    },
-    {
-      key: 'streamingHours' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.streaming,
-      description: ACTIVITY_DESCRIPTIONS.streaming,
-      max: 24,
-      step: 0.5,
-      icon: '📺',
-    },
-    {
-      key: 'codingHours' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.coding,
-      description: ACTIVITY_DESCRIPTIONS.coding,
-      max: 24,
-      step: 0.5,
-      icon: '💻',
-    },
-    {
-      key: 'videoCallHours' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.video_calls,
-      description: ACTIVITY_DESCRIPTIONS.video_calls,
-      max: 24,
-      step: 0.5,
-      icon: '📹',
-    },
-    {
-      key: 'cloudStorageGB' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.cloud_storage,
-      description: ACTIVITY_DESCRIPTIONS.cloud_storage,
-      max: 1000,
-      step: 1,
-      icon: '☁️',
-    },
-    {
-      key: 'gamingHours' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.gaming,
-      description: ACTIVITY_DESCRIPTIONS.gaming,
-      max: 24,
-      step: 0.5,
-      icon: '🎮',
-    },
-    {
-      key: 'socialMediaHours' as keyof ActivityInput,
-      label: ACTIVITY_LABELS.social_media,
-      description: ACTIVITY_DESCRIPTIONS.social_media,
-      max: 24,
-      step: 0.5,
-      icon: '📱',
-    },
-  ];
-  const hasActivity = Object.values(activities).some((v) => v > 0);
+  const hasActivity = formFields.some((field) => activities[field.key] > 0);
   return (
     <div className="max-w-4xl mx-auto p-6 ">
       <div className="bg-white rounded-xl shadow-lg p-8">
@@ -180,14 +277,56 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Customize Activity List</h3>
+                <p className="text-xs text-gray-600">Remove activities you do not track or add them back anytime.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedFieldToAdd}
+                  onChange={(e) => setSelectedFieldToAdd(e.target.value as keyof ActivityInput | '')}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  aria-label="Select activity to add"
+                >
+                  <option value="">Select activity</option>
+                  {hiddenFields.map((field) => (
+                    <option key={field.key} value={field.key}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAddField}
+                  disabled={!selectedFieldToAdd}
+                  className="px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Activity
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-6">
             {formFields.map((field) => (
               <div key={field.key} className="space-y-3 relative">
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl">{field.icon}</span>
-                  <label className="text-lg font-medium text-gray-900">
-                    {field.label}
-                  </label>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-2xl">{field.icon}</span>
+                    <label className="text-lg font-medium text-gray-900">
+                      {field.label}
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveField(field.key)}
+                    className="text-xs font-medium text-red-600 hover:text-red-700"
+                    aria-label={`Remove ${field.label}`}
+                  >
+                    Delete
+                  </button>
                   {/* Info Icon with Tooltip */}
                   <div
                     className="relative"
