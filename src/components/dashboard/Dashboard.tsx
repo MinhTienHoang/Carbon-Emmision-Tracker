@@ -82,6 +82,18 @@ function getTimestampValue(timestamp: Date | string | undefined) {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
+function isActivityType(value: string): value is ActivityType {
+  return value in {
+    emails: true,
+    streaming: true,
+    coding: true,
+    video_calls: true,
+    cloud_storage: true,
+    gaming: true,
+    social_media: true,
+  };
+}
+
 function buildDashboardDataFromHistory(
   activityHistory: ActivityHistoryEntry[]
 ): DashboardData | null {
@@ -126,7 +138,9 @@ function buildDashboardDataFromHistory(
     .filter((entry) => getTimestampValue(entry.timestamp) >= weekStart)
     .forEach((entry) => {
       Object.entries(entry.result.breakdown).forEach(([activity, value]) => {
-        weeklyBreakdown[activity as ActivityType] += value;
+        if (isActivityType(activity)) {
+          weeklyBreakdown[activity] += value;
+        }
       });
     });
 
@@ -254,7 +268,9 @@ export default function Dashboard({
           .filter((f) => f.date >= weekStart)
           .forEach((f) => {
             Object.entries(f.breakdown).forEach(([activity, value]) => {
-              weeklyBreakdown[activity as ActivityType] += value;
+              if (isActivityType(activity)) {
+                weeklyBreakdown[activity] += value;
+              }
             });
           });
 

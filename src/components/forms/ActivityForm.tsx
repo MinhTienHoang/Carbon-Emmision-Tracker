@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityInput } from '@/types';
-import { calculateCarbonFootprint } from '@/lib/calculations/carbonFootprint';
+import { calculateCarbonFootprint, calculateEquivalents } from '@/lib/calculations/carbonFootprint';
 import { ACTIVITY_LABELS, ACTIVITY_DESCRIPTIONS } from '@/constants/co2Factors';
 
 const ACTIVITY_LIST_STORAGE_KEY = 'carbon_tracker_visible_activities';
@@ -23,6 +23,12 @@ type ActivityFieldConfig = {
   max: number;
   step: number;
   icon: string;
+};
+
+type CustomActivityEntry = {
+  id: string;
+  name: string;
+  emission: number;
 };
 
 const allFormFields: ActivityFieldConfig[] = [
@@ -114,6 +120,9 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [visibleFieldKeys, setVisibleFieldKeys] = useState<Array<keyof ActivityInput>>(ALL_FIELD_KEYS);
   const [selectedFieldToAdd, setSelectedFieldToAdd] = useState<keyof ActivityInput | ''>('');
+  const [customActivities, setCustomActivities] = useState<CustomActivityEntry[]>([]);
+  const [customActivityName, setCustomActivityName] = useState('');
+  const [customActivityEmission, setCustomActivityEmission] = useState<number>(0);
 
   useEffect(() => {
     const raw = localStorage.getItem(ACTIVITY_LIST_STORAGE_KEY);
@@ -153,6 +162,11 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     [visibleFieldKeys]
   );
 
+  const customActivitiesTotal = useMemo(
+    () => customActivities.reduce((sum, activity) => sum + activity.emission, 0),
+    [customActivities]
+  );
+
   const validateField = (field: keyof ActivityInput, value: number) => {
     if (touched[field] && value < 0) {
       if (field.includes('Hours')) {
@@ -170,9 +184,9 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
       return false;
     }
 
-    const hasActivity = formFields.some(field => activities[field.key] > 0);
+    const hasActivity = formFields.some(field => activities[field.key] > 0) || customActivitiesTotal > 0;
     if (!hasActivity) {
-      setErrors({ form: 'Please select at least one activity' });
+      setErrors({ form: 'Please select at least one activity or add a custom activity' });
       return false;
     }
     setErrors({});
@@ -223,6 +237,35 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     setSelectedFieldToAdd('');
   };
 
+  const handleAddCustomActivity = () => {
+    const trimmedName = customActivityName.trim();
+
+    if (!trimmedName) {
+      setErrors((prev) => ({ ...prev, form: 'Custom activity name is required' }));
+      return;
+    }
+
+    if (customActivityEmission <= 0) {
+      setErrors((prev) => ({ ...prev, form: 'Custom activity emission must be greater than 0' }));
+      return;
+    }
+
+    const newEntry: CustomActivityEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: trimmedName,
+      emission: customActivityEmission,
+    };
+
+    setCustomActivities((prev) => [...prev, newEntry]);
+    setCustomActivityName('');
+    setCustomActivityEmission(0);
+    setErrors((prev) => ({ ...prev, form: '' }));
+  };
+
+  const handleRemoveCustomActivity = (id: string) => {
+    setCustomActivities((prev) => prev.filter((item) => item.id !== id));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -239,7 +282,13 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     setIsSubmitting(true);
 
     try {
-      const result = calculateCarbonFootprint(activities);
+      const baseResult = calculateCarbonFootprint(activities);
+      const totalCO2 = baseResult.totalCO2 + customActivitiesTotal;
+      const result = {
+        ...baseResult,
+        totalCO2,
+        equivalents: calculateEquivalents(totalCO2),
+      };
       onSubmit(activities, result);
 
       setTimeout(() => {
@@ -254,6 +303,9 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
         });
         setErrors({});
         setTouched({});
+        setCustomActivities([]);
+        setCustomActivityName('');
+        setCustomActivityEmission(0);
         setIsSubmitting(false);
       }, 500);
 
@@ -263,7 +315,7 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
     }
   };
 
-  const hasActivity = formFields.some((field) => activities[field.key] > 0);
+  const hasActivity = formFields.some((field) => activities[field.key] > 0) || customActivitiesTotal > 0;
   return (
     <div className="max-w-4xl mx-auto p-6 ">
       <div className="bg-white rounded-xl shadow-lg p-8">
@@ -307,6 +359,68 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Add Custom Activity</h3>
+              <p className="text-xs text-gray-600">Log any activity not in the list and enter its CO2 emission directly in grams.</p>
+            </div>
+
+            <div className="grid sm:grid-cols-[1fr_180px_auto] gap-2 items-center">
+              <input
+                type="text"
+                value={customActivityName}
+                onChange={(e) => setCustomActivityName(e.target.value)}
+                placeholder="Activity name"
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                aria-label="Custom activity name"
+              />
+              <div className="flex items-center border border-gray-300 rounded-md bg-white">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={customActivityEmission}
+                  onChange={(e) => setCustomActivityEmission(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-sm text-gray-900 focus:outline-none"
+                  aria-label="Custom activity emission in grams of CO2"
+                />
+                <span className="px-2 text-xs text-gray-500 border-l border-gray-200">g CO2</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddCustomActivity}
+                className="px-3 py-2 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700"
+              >
+                Add Custom
+              </button>
+            </div>
+
+            {customActivities.length > 0 && (
+              <div className="space-y-2">
+                {customActivities.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between bg-white border border-emerald-100 rounded-md px-3 py-2">
+                    <span className="text-sm text-gray-800">{item.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-emerald-700">{item.emission.toFixed(1)} g CO2</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomActivity(item.id)}
+                        className="text-xs font-medium text-red-600 hover:text-red-700"
+                        aria-label={`Remove custom activity ${item.name}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <p className="text-xs text-gray-700">
+                  Custom activity total: <span className="font-semibold text-emerald-700">{customActivitiesTotal.toFixed(1)} g CO2</span>
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
