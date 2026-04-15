@@ -22,6 +22,11 @@ type SortOption = "newest" | "oldest" | "highest_impact" | "lowest_impact";
 
 const LOCAL_STORAGE_KEY = "activitySortPreference";
 
+const getTimestampValue = (timestamp: Date | string | undefined) => {
+  const date = new Date(timestamp ?? Date.now());
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
 export default function AppLayout() {
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageType>("dashboard");
@@ -71,10 +76,14 @@ useEffect(() => {
     switch (sortPreference) {
       case "newest":
         // Sort descending by timestamp
-        return sortedList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        return sortedList.sort(
+          (a, b) => getTimestampValue(b.timestamp).getTime() - getTimestampValue(a.timestamp).getTime()
+        );
       case "oldest":
         // Sort ascending by timestamp
-        return sortedList.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return sortedList.sort(
+          (a, b) => getTimestampValue(a.timestamp).getTime() - getTimestampValue(b.timestamp).getTime()
+        );
       case "highest_impact":
         // Impact is based on totalCO2, so sort descending
         return sortedList.sort((a, b) => b.result.totalCO2 - a.result.totalCO2);
@@ -82,7 +91,9 @@ useEffect(() => {
         // Impact is based on totalCO2, so sort ascending
         return sortedList.sort((a, b) => a.result.totalCO2 - b.result.totalCO2);
       default:
-        return sortedList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Default to newest
+        return sortedList.sort(
+          (a, b) => getTimestampValue(b.timestamp).getTime() - getTimestampValue(a.timestamp).getTime()
+        ); // Default to newest
     }
   };
 

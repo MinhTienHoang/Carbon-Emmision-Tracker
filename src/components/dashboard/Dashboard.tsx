@@ -72,6 +72,11 @@ function getStartOfDay(date: Date) {
   return normalized;
 }
 
+function getTimestampValue(timestamp: Date | string | undefined) {
+  const date = new Date(timestamp ?? Date.now());
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
 function buildDashboardDataFromHistory(
   activityHistory: ActivityHistoryEntry[]
 ): DashboardData | null {
@@ -88,16 +93,18 @@ function buildDashboardDataFromHistory(
 
   const todayFootprint = activityHistory
     .filter(
-      (entry) => getStartOfDay(new Date(entry.timestamp)).getTime() === today.getTime()
+      (entry) =>
+        getStartOfDay(getTimestampValue(entry.timestamp)).getTime() ===
+        today.getTime()
     )
     .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
 
   const weeklyFootprint = activityHistory
-    .filter((entry) => new Date(entry.timestamp) >= weekStart)
+    .filter((entry) => getTimestampValue(entry.timestamp) >= weekStart)
     .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
 
   const monthlyFootprint = activityHistory
-    .filter((entry) => new Date(entry.timestamp) >= monthStart)
+    .filter((entry) => getTimestampValue(entry.timestamp) >= monthStart)
     .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
 
   const weeklyBreakdown: Record<ActivityType, number> = {
@@ -111,7 +118,7 @@ function buildDashboardDataFromHistory(
   };
 
   activityHistory
-    .filter((entry) => new Date(entry.timestamp) >= weekStart)
+    .filter((entry) => getTimestampValue(entry.timestamp) >= weekStart)
     .forEach((entry) => {
       Object.entries(entry.result.breakdown).forEach(([activity, value]) => {
         weeklyBreakdown[activity as ActivityType] += value;
@@ -125,7 +132,9 @@ function buildDashboardDataFromHistory(
 
     const dayFootprint = activityHistory
       .filter(
-        (entry) => getStartOfDay(new Date(entry.timestamp)).getTime() === day.getTime()
+        (entry) =>
+          getStartOfDay(getTimestampValue(entry.timestamp)).getTime() ===
+          day.getTime()
       )
       .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
 
@@ -344,7 +353,8 @@ export default function Dashboard({
       [...(activityHistory as ActivityHistoryEntry[])]
         .sort(
           (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            getTimestampValue(b.timestamp).getTime() -
+            getTimestampValue(a.timestamp).getTime()
         )
         .slice(0, 4),
     [activityHistory]
@@ -437,7 +447,7 @@ export default function Dashboard({
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
-                        {entry.timestamp.toLocaleString()}
+                        {getTimestampValue(entry.timestamp).toLocaleString()}
                       </p>
                       <p className="mt-1 text-sm text-gray-600">
                         {formatActivitySummary(entry)}
@@ -504,7 +514,7 @@ export default function Dashboard({
                 <div key={entry.id} className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-600">
-                      {entry.timestamp.toLocaleString()}
+                      {getTimestampValue(entry.timestamp).toLocaleString()}
                     </span>
                     <span className="font-bold text-green-600">
                       +{formatCO2Amount(entry.result.totalCO2)}
