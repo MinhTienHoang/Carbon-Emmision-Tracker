@@ -617,8 +617,6 @@ export default function ActivityForm({ onSubmit, initialValues }: ActivityFormPr
                     </div>
                   );
                 })}
-                  </div>
-                ))}
 
                 <p className="text-xs text-gray-700">
                   Custom activity total: <span className="font-semibold text-emerald-700">{customActivitiesTotal.toFixed(1)} g CO2</span>
