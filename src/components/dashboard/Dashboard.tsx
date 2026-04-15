@@ -184,7 +184,7 @@ export default function Dashboard({
 
   const historyDashboardData = useMemo(
     () => buildDashboardDataFromHistory(activityHistory as ActivityHistoryEntry[]),
-    [activityHistory]
+    [activityHistory?.length]
   );
 
   const displayedDashboardData = historyDashboardData ?? dashboardData;
@@ -359,7 +359,7 @@ export default function Dashboard({
           getTimestampValue(a.timestamp).getTime()
       )
       .slice(0, 4);
-  }, [activityHistory]);
+  }, [activityHistory?.length, activityHistory]);
 
   const formatActivitySummary = (entry: any) => {
     if (!entry?.activities) return "No activities";

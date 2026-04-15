@@ -97,6 +97,11 @@ useEffect(() => {
     }
   };
 
+  const memoizedSortedHistory = useMemo(
+    () => getSortedActivityHistory(),
+    [activityHistory.length, sortPreference]
+  );
+
   const loadTodayFootprint = async () => {
     // This would fetch today's footprint from the database
     // For now, start from zero until user logs activity
@@ -263,7 +268,7 @@ useEffect(() => {
         return (
           <Dashboard
             dashboardData={dashboardData}
-            activityHistory={getSortedActivityHistory()}
+            activityHistory={memoizedSortedHistory}
             sortPreference={sortPreference}
             onSortChange={handleSortChange}
             onNavigate={setCurrentPage}
