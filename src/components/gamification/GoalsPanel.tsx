@@ -16,7 +16,6 @@ interface GoalCardProps {
   description: string;
   targetReduction: number;
   difficulty: 'easy' | 'medium' | 'hard';
-  icon: string;
   isSelected: boolean;
   onClick: () => void;
 }
@@ -26,7 +25,6 @@ function GoalCard({
   description,
   targetReduction,
   difficulty,
-  icon,
   isSelected,
   onClick,
 }: GoalCardProps) {
@@ -46,7 +44,6 @@ function GoalCard({
       }`}
     >
       <div className="mb-2 flex items-center space-x-3">
-        <span className="text-2xl">{icon}</span>
         <div>
           <h3 className="font-semibold text-gray-900">{title}</h3>
           <span
@@ -87,21 +84,18 @@ export default function GoalsPanel({
       description: 'Perfect for beginners looking to make their first impact',
       targetReduction: 10,
       difficulty: 'easy' as const,
-      icon: 'ðŸŒ±',
     },
     {
       title: 'Green Guardian',
       description: 'Take a meaningful step towards sustainability',
       targetReduction: 25,
       difficulty: 'medium' as const,
-      icon: 'ðŸŒ¿',
     },
     {
       title: 'Climate Champion',
       description: 'Ambitious goal for serious environmental advocates',
       targetReduction: 50,
       difficulty: 'hard' as const,
-      icon: 'ðŸ†',
     },
   ];
 
@@ -135,18 +129,18 @@ export default function GoalsPanel({
     if (!currentGoal) return 'Set your first weekly goal to start your journey!';
 
     if (isGoalAchieved) {
-      return "ðŸŽ‰ Congratulations! You've achieved your weekly goal!";
+      return "Congratulations! You've achieved your weekly goal!";
     }
     if (currentProgress >= currentGoal.targetReduction * 0.75) {
-      return "ðŸ”¥ You're so close! Keep pushing towards your goal!";
+      return "You're so close! Keep pushing towards your goal!";
     }
     if (currentProgress >= currentGoal.targetReduction * 0.5) {
-      return "ðŸ’ª Great progress! You're halfway to your goal!";
+      return "Great progress! You're halfway to your goal!";
     }
     if (currentProgress > 0) {
-      return 'ðŸŒ± Good start! Every step counts towards your goal!';
+      return 'Good start! Every step counts towards your goal!';
     }
-    return 'âš¡ It is time to take action! You can do this!';
+    return 'It is time to take action! You can do this!';
   };
 
   return (
@@ -154,15 +148,12 @@ export default function GoalsPanel({
       className={`rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 p-6 ${className}`}
     >
       <div className="mb-6 text-center">
-        <h2 className="mb-2 text-2xl font-bold text-gray-900">
-          ðŸŽ¯ Weekly Goals
-        </h2>
+        <h2 className="mb-2 text-2xl font-bold text-gray-900">Weekly Goals</h2>
         <p className="text-gray-600">{getMotivationalMessage()}</p>
       </div>
 
       {!currentGoal && (
         <div className="mb-6 rounded-lg bg-white p-6 text-center">
-          <div className="mb-3 text-5xl">ðŸŽ¯</div>
           <h3 className="mb-2 text-lg font-semibold text-gray-900">
             Set your first carbon reduction goal!
           </h3>
@@ -194,7 +185,6 @@ export default function GoalsPanel({
 
         <div className="rounded-lg bg-white p-4">
           <div className="mb-2 flex items-center space-x-3">
-            <span className="text-2xl">âš™ï¸</span>
             <h4 className="font-semibold text-gray-900">Custom Goal</h4>
           </div>
           <div className="flex items-center space-x-2">
@@ -233,12 +223,12 @@ export default function GoalsPanel({
       </div>
 
       <div className="mt-6 rounded-lg bg-white p-4">
-        <h4 className="mb-2 font-semibold text-gray-900">ðŸ’¡ Tips for Success</h4>
+        <h4 className="mb-2 font-semibold text-gray-900">Tips for Success</h4>
         <ul className="space-y-1 text-sm text-gray-600">
-          <li>â€¢ Start with small, achievable goals and gradually increase</li>
-          <li>â€¢ Focus on one activity type at a time for better results</li>
-          <li>â€¢ Use the tips section to find specific reduction strategies</li>
-          <li>â€¢ Track your progress daily to stay motivated</li>
+          <li>Start with small, achievable goals and gradually increase</li>
+          <li>Focus on one activity type at a time for better results</li>
+          <li>Use the tips section to find specific reduction strategies</li>
+          <li>Track your progress daily to stay motivated</li>
         </ul>
       </div>
     </div>
