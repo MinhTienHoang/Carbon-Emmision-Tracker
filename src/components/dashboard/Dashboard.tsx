@@ -157,8 +157,8 @@ function buildDashboardDataFromHistory(
 type PageType = "dashboard" | "activities" | "tips" | "goals" | "badges";
 
 interface DashboardProps {
-  dashboardData?: any;
-  activityHistory?: any[];
+  dashboardData?: DashboardData | null;
+  activityHistory?: ActivityHistoryEntry[];
   onNavigate: (page: PageType) => void;
   sortPreference: SortOption;
   onSortChange: (sort: SortOption) => void;
@@ -185,7 +185,7 @@ export default function Dashboard({
   }>({ show: false, success: false, message: "" });
 
   const historyDashboardData = useMemo(
-    () => buildDashboardDataFromHistory(activityHistory as ActivityHistoryEntry[]),
+    () => buildDashboardDataFromHistory(activityHistory),
     [activityHistory]
   );
 
@@ -299,7 +299,7 @@ export default function Dashboard({
 
   // Handle CSV export
   const handleExportCSV = () => {
-    const result = exportToCSV(activityHistory as ActivityHistoryEntry[]);
+    const result = exportToCSV(activityHistory);
     setExportStatus({
       show: true,
       success: result.success,
@@ -363,12 +363,11 @@ export default function Dashboard({
     );
   }
 
-  const formatActivitySummary = (entry: any) => {
-    if (!entry?.activities) return "No activities";
+  const formatActivitySummary = (entry: ActivityHistoryEntry) => {
     return Object.entries(entry.activities)
-      .filter(([, value]: [string, any]) => value > 0)
-      .map(([activity, value]: [string, any]) => {
-        const displayValue = typeof value === "number" ? value.toFixed(1) : value;
+      .filter(([, value]) => value > 0)
+      .map(([activity, value]) => {
+        const displayValue = value.toFixed(1);
         return `${activity.replace(/_/g, " ")}: ${displayValue}`;
       })
       .join(", ");
@@ -520,7 +519,7 @@ export default function Dashboard({
 
           {activityHistory.length > 0 ? (
             <div className="space-y-4">
-              {activityHistory.map((entry: any) => (
+              {activityHistory.map((entry) => (
                 <div key={entry.id} className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-600">

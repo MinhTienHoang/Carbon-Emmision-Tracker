@@ -9,9 +9,22 @@ import ActivityForm from "@/components/forms/ActivityForm";
 import TipsPanel from "@/components/tips/TipsPanel";
 import GoalsPanel from "@/components/gamification/GoalsPanel";
 import BadgeDisplay from "@/components/gamification/BadgeDisplay";
-import { ActivityInput, WeeklyGoal } from "@/types";
-import { calculateCarbonFootprint } from "@/lib/calculations/carbonFootprint";
-import { saveCarbonFootprint, saveActivity } from "@/lib/storage/localData";
+import {
+  ActivityHistoryEntry,
+  ActivityInput,
+  ActivityType,
+  DashboardData,
+  WeeklyGoal,
+} from "@/types";
+import {
+  calculateEquivalents,
+} from "@/lib/calculations/carbonFootprint";
+import {
+  getUserActivityHistory,
+  saveActivityHistoryEntry,
+  saveCarbonFootprint,
+  saveActivity,
+} from "@/lib/storage/localData";
 import { ShortcutsModal } from "../ui/ShortcutsModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import QuickActionsFAB from "@/components/ui/QuickActionsFAB";
@@ -22,6 +35,15 @@ type SortOption = "newest" | "oldest" | "highest_impact" | "lowest_impact";
 
 const LOCAL_STORAGE_KEY = "activitySortPreference";
 const GOAL_STORAGE_KEY = "weeklyGoalTargetReduction";
+const ACTIVITY_TYPE_MAP: Record<keyof ActivityInput, ActivityType> = {
+  emails: "emails",
+  streamingHours: "streaming",
+  codingHours: "coding",
+  videoCallHours: "video_calls",
+  cloudStorageGB: "cloud_storage",
+  gamingHours: "gaming",
+  socialMediaHours: "social_media",
+};
 
 const getTimestampValue = (timestamp: Date | string | undefined) => {
   const date = new Date(timestamp ?? Date.now());
@@ -37,15 +59,54 @@ const getStartOfWeek = (date: Date) => {
   return normalized;
 };
 
+const getStartOfDay = (date: Date) => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
+const createDashboardFallback = (todayFootprint = 0) => ({
+  todayFootprint,
+  weeklyFootprint: todayFootprint,
+  monthlyFootprint: todayFootprint,
+  weeklyBreakdown: {
+    emails: 0,
+    streaming: 0,
+    coding: 0,
+    video_calls: 0,
+    cloud_storage: 0,
+    gaming: 0,
+    social_media: 0,
+  },
+  trend: Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+
+    return {
+      date: date.toLocaleDateString("en-US", { weekday: "short" }),
+      co2: index === 6 ? todayFootprint : 0,
+    };
+  }),
+  equivalents: calculateEquivalents(todayFootprint),
+});
+
+const calculateTodayTotal = (entries: ActivityHistoryEntry[]) => {
+  const today = getStartOfDay(new Date()).getTime();
+  return entries
+    .filter(
+      (entry) => getStartOfDay(getTimestampValue(entry.timestamp)).getTime() === today
+    )
+    .reduce((sum, entry) => sum + entry.result.totalCO2, 0);
+};
+
 export default function AppLayout() {
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageType>("dashboard");
   const [todayFootprint, setTodayFootprint] = useState(0);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [activityHistory, setActivityHistory] = useState<any[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [activityHistory, setActivityHistory] = useState<ActivityHistoryEntry[]>([]);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [sortPreference, setSortPreference] = useState<SortOption>("newest");
   const [goalTargetReduction, setGoalTargetReduction] = useState<number>(20);
@@ -67,6 +128,8 @@ useEffect(() => {
 }, [currentPage]);
 
 useEffect(() => {
+  if (!user) return;
+
   const savedSort = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (savedSort && ['newest', 'oldest', 'highest_impact', 'lowest_impact'].includes(savedSort)) {
     setSortPreference(savedSort as SortOption);
@@ -80,8 +143,7 @@ useEffect(() => {
     }
   }
 
-  // Load today's footprint when component mounts
-  loadTodayFootprint();
+  void loadUserDashboardState(user.id);
 }, [user]);
 
   const handleSortChange = (newSort: SortOption) => {
@@ -167,38 +229,13 @@ useEffect(() => {
     };
   }, [user, goalTargetReduction, currentWeekCO2, lastWeekCO2]);
 
-  const loadTodayFootprint = async () => {
-    // This would fetch today's footprint from the database
-    // For now, start from zero until user logs activity
-    const baseFootprint = 0;
-    setTodayFootprint(baseFootprint);
+  const loadUserDashboardState = async (userId: string) => {
+    const savedHistory = await getUserActivityHistory(userId);
+    setActivityHistory(savedHistory);
 
-    // Initialize dashboard with sample data
-    const initialDashboard = {
-      todayFootprint: baseFootprint,
-      weeklyFootprint: baseFootprint * 7,
-      monthlyFootprint: baseFootprint * 30,
-      weeklyBreakdown: {
-        emails: 0,
-        streaming: 0,
-        coding: 0,
-        video_calls: 0,
-        cloud_storage: 0,
-        gaming: 0,
-        social_media: 0,
-      },
-      trend: [
-        { date: "Mon", co2: 0 },
-        { date: "Tue", co2: 0 },
-        { date: "Wed", co2: 0 },
-        { date: "Thu", co2: 0 },
-        { date: "Fri", co2: 0 },
-        { date: "Sat", co2: 0 },
-        { date: "Today", co2: baseFootprint },
-      ],
-      equivalents: [],
-    };
-    setDashboardData(initialDashboard);
+    const todayTotal = calculateTodayTotal(savedHistory);
+    setTodayFootprint(todayTotal);
+    setDashboardData(createDashboardFallback(todayTotal));
   };
 
   const handleActivitySubmit = async (
@@ -214,52 +251,28 @@ useEffect(() => {
 
     setIsLoading(true);
 
+    const timestamp = new Date();
+    const historyEntry: ActivityHistoryEntry = {
+      activities,
+      result,
+      timestamp,
+      id: timestamp.getTime().toString(),
+    };
+
     try {
       // Optimized: Update UI immediately for better UX
       const newTodayFootprint = todayFootprint + result.totalCO2;
       setTodayFootprint(newTodayFootprint);
-
-      // Update dashboard data in real-time
-      setDashboardData((prev: any) => {
-        if (!prev) return prev;
-
-        // Update today's footprint in trend
-        const updatedTrend = prev.trend.map((day: any) =>
-          day.date === "Today" ? { ...day, co2: newTodayFootprint } : day
-        );
-
-        // Update weekly breakdown by adding new activities
-        const updatedBreakdown = { ...prev.weeklyBreakdown };
-        Object.entries(result.breakdown).forEach(([activity, co2]) => {
-          updatedBreakdown[activity] = (updatedBreakdown[activity] || 0) + co2;
-        });
-
-        return {
-          ...prev,
-          todayFootprint: newTodayFootprint,
-          weeklyFootprint: prev.weeklyFootprint + result.totalCO2,
-          monthlyFootprint: prev.monthlyFootprint + result.totalCO2,
-          weeklyBreakdown: updatedBreakdown,
-          trend: updatedTrend,
-          equivalents: result.equivalents,
-        };
-      });
+      setDashboardData(createDashboardFallback(newTodayFootprint));
 
       // Add to activity history
-      setActivityHistory((prev) => [
-        ...prev,
-        {
-          activities,
-          result,
-          timestamp: new Date(),
-          id: Date.now().toString(),
-        },
-      ]);
+      setActivityHistory((prev) => [...prev, historyEntry]);
 
       setCurrentPage("dashboard");
 
       // In development mode, simulate saving with shorter delay
       if (process.env.NODE_ENV === "development") {
+        await saveActivityHistoryEntry(user.id, historyEntry);
         await new Promise((resolve) => setTimeout(resolve, 800)); // Faster development save
         console.log("Demo: Activities saved successfully", {
           activities,
@@ -271,16 +284,17 @@ useEffect(() => {
       }
 
       // Production: Batch all database operations
-      const savePromises = [];
+      const savePromises: Promise<void>[] = [];
 
       // Save activities in parallel
-      Object.entries(activities).forEach(([activityType, value]) => {
+      (Object.entries(activities) as Array<[keyof ActivityInput, number]>).forEach(
+        ([activityType, value]) => {
         if (value > 0) {
           savePromises.push(
             saveActivity({
-              type: activityType as any,
+              type: ACTIVITY_TYPE_MAP[activityType],
               value,
-              date: new Date(),
+              date: timestamp,
               userId: user.id,
             })
           );
@@ -292,19 +306,24 @@ useEffect(() => {
         saveCarbonFootprint({
           totalCO2: result.totalCO2,
           breakdown: result.breakdown,
-          date: new Date(),
+          date: timestamp,
           userId: user.id,
         })
       );
 
       // Execute all saves in parallel
       await Promise.all(savePromises);
+      await saveActivityHistoryEntry(user.id, historyEntry);
       setSuccessToast(customToastMessage || "Activities saved successfully!");
       setTimeout(() => setSuccessToast(null), 3000);
     } catch (error) {
       console.error("Error saving activities:", error);
       // Rollback UI changes on error
       setTodayFootprint((prev) => prev - result.totalCO2);
+      setDashboardData((prev) =>
+        prev ? createDashboardFallback(Math.max(0, prev.todayFootprint - result.totalCO2)) : prev
+      );
+      setActivityHistory((prev) => prev.filter((entry) => entry.id !== historyEntry.id));
       alert("Failed to save activities. Please try again.");
     } finally {
       setIsLoading(false);
@@ -430,6 +449,8 @@ useEffect(() => {
         return (<Dashboard
           dashboardData={dashboardData}
           activityHistory={activityHistory}
+          sortPreference={sortPreference}
+          onSortChange={handleSortChange}
           goalTargetReduction={goalTargetReduction}
           onNavigate={setCurrentPage}
         />);

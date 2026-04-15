@@ -10,6 +10,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  TooltipItem,
 } from "chart.js";
 import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
 import { ComparisonPeriod, getComparisonData } from "@/constants/globalAverages";
@@ -87,7 +88,7 @@ export default function ComparisonChart({
           borderWidth: 1,
           cornerRadius: 8,
           callbacks: {
-            label: (context: any) => {
+            label: (context: TooltipItem<"bar">) => {
               const value = context.parsed.y;
               const label = context.label;
               
