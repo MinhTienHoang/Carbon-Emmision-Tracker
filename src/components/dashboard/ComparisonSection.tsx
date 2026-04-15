@@ -119,6 +119,7 @@ export default function ComparisonSection({
 
       {/* Comparison Chart */}
       <ComparisonChart
+        key={`${selectedPeriod}-${dashboardData?.todayFootprint ?? 0}-${dashboardData?.weeklyFootprint ?? 0}-${dashboardData?.monthlyFootprint ?? 0}`}
         userFootprint={userFootprint}
         period={selectedPeriod}
       />

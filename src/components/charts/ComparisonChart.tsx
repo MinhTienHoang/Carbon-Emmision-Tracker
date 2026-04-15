@@ -168,7 +168,7 @@ export default function ComparisonChart({
     <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
       {/* Chart */}
       <div className="h-80 mb-6">
-        <Bar data={chartData} options={chartOptions} />
+        <Bar data={chartData} options={chartOptions} redraw />
       </div>
 
       {/* Performance Status */}
