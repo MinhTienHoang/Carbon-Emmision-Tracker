@@ -17,7 +17,7 @@ import {
   Tooltip,
   TooltipItem,
 } from "chart.js";
-import { Bar, Line, Pie } from "react-chartjs-2";
+import { Bar, Line } from "react-chartjs-2";
 import { ACTIVITY_LABELS } from "@/constants/co2Factors";
 import { formatCO2Amount } from "@/lib/calculations/carbonFootprint";
 import { ActivityType } from "@/types";
@@ -54,6 +54,16 @@ const chartColors = [
   "#EC4899",
   "#6B7280",
 ];
+
+interface PieSlice {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+  percentage: number;
+  strokeDasharray: string;
+  strokeDashoffset: number;
+}
 
 export default function FootprintChart({
   type,
@@ -104,51 +114,28 @@ export default function FootprintChart({
     );
   }, [normalizedBreakdown]);
 
-  const pieOptions = useMemo<ChartOptions<"pie">>(() => {
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "bottom" as const,
-          labels: {
-            usePointStyle: true,
-            padding: 20,
-            font: {
-              size: 12,
-            },
-          },
-        },
-        title: {
-          display: true,
-          text: title,
-          font: {
-            size: 16,
-            weight: "bold" as const,
-          },
-          padding: 20,
-        },
-        tooltip: {
-          callbacks: {
-            label: (context: TooltipItem<"pie">) => {
-              const value = Number(context.parsed ?? 0);
-              const datasetValues = (context.dataset.data as number[]) ?? [];
-              const total = datasetValues.reduce(
-                (sum: number, item: number) => sum + item,
-                0
-              );
-              const percentage =
-                total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+  const pieSlices = useMemo<PieSlice[]>(() => {
+    const entries = Object.entries(filteredBreakdown);
+    const total = entries.reduce((sum, [, value]) => sum + value, 0);
+    const circumference = 2 * Math.PI * 42;
+    let cumulativeLength = 0;
 
-              return `${context.label}: ${formatCO2Amount(
-                value
-              )} (${percentage}%)`;
-            },
-          },
-        },
-      },
-    };
-  }, [title]);
+    return entries.map(([key, value], index) => {
+      const segmentLength = total > 0 ? (value / total) * circumference : 0;
+      const slice: PieSlice = {
+        key,
+        label: ACTIVITY_LABELS[key as ActivityType] || key,
+        value,
+        color: chartColors[index % chartColors.length],
+        percentage: total > 0 ? (value / total) * 100 : 0,
+        strokeDasharray: `${segmentLength} ${circumference - segmentLength}`,
+        strokeDashoffset: -cumulativeLength,
+      };
+
+      cumulativeLength += segmentLength;
+      return slice;
+    });
+  }, [filteredBreakdown]);
 
   const lineOptions = useMemo<ChartOptions<"line">>(() => {
     return {
@@ -241,24 +228,6 @@ export default function FootprintChart({
     };
   }, [title]);
 
-  const pieData = useMemo<ChartData<"pie", number[], string>>(() => {
-    return {
-      labels: Object.keys(filteredBreakdown).map(
-        (key) => ACTIVITY_LABELS[key as ActivityType] || key
-      ),
-      datasets: [
-        {
-          label: "CO2 Emissions",
-          data: Object.values(filteredBreakdown),
-          backgroundColor: `${chartColors[0]}80`,
-          borderColor: chartColors[0],
-          borderWidth: 2,
-          borderRadius: 4,
-        },
-      ],
-    };
-  }, [filteredBreakdown]);
-
   const lineData = useMemo<ChartData<"line", number[], string>>(() => {
     return {
       labels: normalizedSeriesData.labels,
@@ -325,7 +294,73 @@ export default function FootprintChart({
   return (
     <div className={`bg-white rounded-xl shadow-lg p-6 ${className}`}>
       <div className="h-80">
-        {type === "pie" && <Pie data={pieData} options={pieOptions} />}
+        {type === "pie" && (
+          <div className="flex h-full flex-col justify-center gap-4 md:flex-row md:items-center md:gap-6">
+            <div className="relative mx-auto h-48 w-48 shrink-0">
+              <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="none"
+                  stroke="#E5E7EB"
+                  strokeWidth="14"
+                />
+                {pieSlices.map((slice) => (
+                  <circle
+                    key={slice.key}
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    fill="none"
+                    stroke={slice.color}
+                    strokeWidth="14"
+                    strokeDasharray={slice.strokeDasharray}
+                    strokeDashoffset={slice.strokeDashoffset}
+                    strokeLinecap="butt"
+                  />
+                ))}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
+                  Total
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {formatCO2Amount(
+                    pieSlices.reduce((sum, slice) => sum + slice.value, 0)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid flex-1 gap-3">
+              {pieSlices.map((slice) => (
+                <div
+                  key={slice.key}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: slice.color }}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {slice.label}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {slice.percentage.toFixed(1)}% of weekly emissions
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700">
+                    {formatCO2Amount(slice.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {type === "line" && <Line data={lineData} options={lineOptions} />}
         {type === "bar" && <Bar data={barData} options={barOptions} />}
       </div>
